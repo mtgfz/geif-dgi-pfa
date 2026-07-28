@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: geif-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: geif_user
+      POSTGRES_PASSWORD: geif_password
+      POSTGRES_DB: geif_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - geif_pgdata:/var/lib/postgresql/data
+
+volumes:
+  geif_pgdata:
+
+# Usage :
+#   1. docker compose up -d
+#   2. export DATABASE_URL=postgresql://geif_user:geif_password@localhost:5432/geif_db
+#   3. cd backend && uvicorn main:app --reload
+#
+# Sans Docker (mode développement rapide) : ne rien faire, l'API utilise
+# automatiquement un fichier SQLite local (./geif.db) si DATABASE_URL
+# n'est pas définie.

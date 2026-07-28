@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.db
+*.joblib
+*.keras
+*.h5
+uploads/
+.env
+*.log
+node_modules/
+.DS_Store
+data/processed/synthetic_dataset/
+data/processed/*.csv
+data/processed/*.json

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Tesseract OCR
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-fra
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate synthetic test data
+        run: |
+          cd data/generators
+          python generate_documents.py --n 20 --out ../processed/synthetic_dataset
+
+      - name: Build OCR training corpus
+        run: |
+          cd data/generators
+          python build_training_corpus.py --dataset ../processed/synthetic_dataset --out ../processed/training_corpus.json
+
+      - name: Train classifier
+        run: |
+          cd ml_classification
+          python classifier.py train --corpus ../data/processed/training_corpus.json --model ./model.joblib
+
+      - name: Smoke-test API import
+        run: |
+          cd backend
+          python -c "import main; print('API module imported successfully')"
