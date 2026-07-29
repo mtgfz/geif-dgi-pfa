@@ -86,6 +86,43 @@ with col_right:
 
 st.divider()
 
+# --- Prévision de volume (pilier Time Series) ---
+st.subheader("📈 Prévision du volume de documents (Time Series)")
+col_fc1, col_fc2 = st.columns([1, 3])
+with col_fc1:
+    tax_type_fc = st.selectbox("Type d'impôt", ["TVA", "IS", "IR", "TP"])
+    horizon_fc = st.slider("Horizon (mois)", 1, 12, 6)
+
+try:
+    fc_resp = requests.get(f"{API_URL}/forecast/{tax_type_fc}", params={"horizon": horizon_fc}, timeout=10)
+    fc_resp.raise_for_status()
+    fc_data = fc_resp.json()
+
+    hist_df = pd.DataFrame(list(fc_data["historical"].items()), columns=["date", "volume"])
+    hist_df["date"] = pd.to_datetime(hist_df["date"])
+    hist_df["serie"] = "Historique"
+
+    base_df = pd.DataFrame(list(fc_data["forecast_baseline_saisonnier"].items()), columns=["date", "volume"])
+    base_df["date"] = pd.to_datetime(base_df["date"])
+    base_df["serie"] = "Prévision (baseline saisonnière)"
+
+    frames = [hist_df, base_df]
+    if fc_data.get("forecast_sarimax"):
+        sar_df = pd.DataFrame(list(fc_data["forecast_sarimax"].items()), columns=["date", "volume"])
+        sar_df["date"] = pd.to_datetime(sar_df["date"])
+        sar_df["serie"] = "Prévision (SARIMAX)"
+        frames.append(sar_df)
+
+    combined = pd.concat(frames)
+    fig_fc = px.line(combined, x="date", y="volume", color="serie", markers=True)
+    with col_fc2:
+        st.plotly_chart(fig_fc, use_container_width=True)
+except Exception as e:
+    with col_fc2:
+        st.info(f"Prévision indisponible pour le moment ({e}). Vérifie que fiscal_timeseries.csv existe.")
+
+st.divider()
+
 # --- Upload interactif ---
 st.subheader("📤 Traiter un nouveau document")
 uploaded_file = st.file_uploader("Dépose un document scanné (image)", type=["png", "jpg", "jpeg"])
@@ -100,6 +137,11 @@ if uploaded_file is not None:
                 result = resp.json()
 
                 st.success(f"Document classifié : **{result['predicted_type']}** (confiance {result['confidence']*100:.0f}%)")
+
+                if result.get("cnn_prediction") and "error" not in result["cnn_prediction"]:
+                    cnn = result["cnn_prediction"]
+                    agree_icon = "✅ d'accord" if cnn["agrees_with_text_model"] else "⚠️ en désaccord"
+                    st.caption(f"🧠 Modèle visuel (CNN) : **{cnn['predicted_type']}** (confiance {cnn['confidence']*100:.0f}%) — {agree_icon} avec le modèle texte")
 
                 c1, c2 = st.columns(2)
                 with c1:

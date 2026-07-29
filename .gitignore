@@ -12,3 +12,6 @@ node_modules/
 data/processed/synthetic_dataset/
 data/processed/*.csv
 data/processed/*.json
+data/raw/irs_soi/*.csv
+*.parquet
+*.duckdb

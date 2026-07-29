@@ -17,9 +17,10 @@ les principaux domaines étudiés cette année en Data & Software Sciences.
 |---|---|---|---|
 | 1 | **Computer Vision** | `cv_ocr/` | OCR (Tesseract) sur documents scannés + extraction de champs |
 | 2 | **Machine Learning** | `ml_classification/` | Classification de type de document (TF-IDF + LogReg) + détection d'anomalies (z-score) |
-| 3 | **Deep Learning** | `deep_learning/` | CNN de classification visuelle (mise en page du document), complémentaire au ML texte |
+| 3 | **Deep Learning** | `deep_learning/` | CNN de classification visuelle (mise en page du document), **intégré en direct dans l'API** en ensemble avec le classifieur texte (accord/désaccord affiché) |
 | 4 | **Time Series** | `time_series/` | Prévision du volume mensuel de documents par type d'impôt (baseline saisonnière + SARIMAX) |
-| 5 | **Full Stack + DevOps** | `backend/`, `dashboard/`, `devops/` | API FastAPI, dashboard Streamlit, Docker, CI GitHub Actions |
+| 5 | **Data Engineering** | `data_engineering/` | Pipeline **Prefect** orchestré + entrepôt **DuckDB** : automatise l'enrichissement de contribuables par IUF (remplace la recherche manuelle type Cognos), avec validation qualité **Pandera** |
+| 6 | **Full Stack + DevOps** | `backend/`, `dashboard/`, `devops/` | API FastAPI, dashboard Streamlit, Docker, CI GitHub Actions |
 
 **Choix assumé :** pas de Reinforcement Learning (pas d'usage naturel identifié — mieux vaut
 5 piliers solides qu'un 6ème forcé). Le "Big Data" est traité comme un choix d'architecture
@@ -38,9 +39,10 @@ geif-dgi-pfa/
 ├── ml_classification/      # Pilier 2 — Classification ML + anomalies
 ├── deep_learning/          # Pilier 3 — CNN de classification visuelle
 ├── time_series/            # Pilier 4 — Prévision de volume
-├── backend/                # Pilier 5 — API FastAPI
-├── dashboard/               # Pilier 5 — Dashboard Streamlit
-├── devops/                  # Pilier 5 — Dockerfile, docker-compose
+├── data_engineering/       # Pilier 5 — Pipeline Prefect + entrepôt DuckDB + validation Pandera
+├── backend/                # Pilier 6 — API FastAPI
+├── dashboard/               # Pilier 6 — Dashboard Streamlit
+├── devops/                  # Pilier 6 — Dockerfile, docker-compose
 ├── .github/workflows/       # CI (tests automatiques à chaque push)
 ├── docs/                    # Rapport, diagrammes
 └── notebooks/                # Exploration ponctuelle (EDA, prototypage)
@@ -68,6 +70,12 @@ python train_cnn_classifier.py --dataset ../data/processed/synthetic_dataset --e
 cd ../time_series
 python forecast_volume.py --tax-type TVA --horizon 6
 
+# 3bis. Pipeline d'automatisation (Data Engineering) — remplace la recherche
+# manuelle type Cognos par un enrichissement automatique par IUF
+cd ../data_engineering
+python build_mock_warehouse.py --n 500 --out ./fiscal_warehouse.duckdb
+python enrich_pipeline.py --input tes_iufs.xlsx --warehouse ./fiscal_warehouse.duckdb --output enrichi.xlsx
+
 # 4. Lancer l'API + le dashboard
 cd ../backend
 uvicorn main:app --reload --port 8000
@@ -85,6 +93,9 @@ historique temporel) sont générées synthétiquement via les scripts de `data/
 
 - **CNN visuel** : entraîné sur peu d'images synthétiques dans le POC — accuracy monte
   progressivement avec plus de données/epochs, ce qui est normal et attendu pour un DL from-scratch.
+  En pratique, le modèle texte (ML) est nettement plus fiable que le modèle visuel (CNN) sur ce
+  jeu de données (les templates se ressemblent visuellement) — résultat honnête à présenter,
+  pas un échec caché.
 - **Time series** : la saisonnalité est simulée de façon simplifiée ; en conditions réelles,
   d'autres facteurs (jours fériés, campagnes de relance) influenceraient le volume.
 - **Big Data** : l'architecture est pensée pour être compatible avec un traitement par batch à
