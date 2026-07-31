@@ -1,4 +1,4 @@
-fastapi==0.115.0
+fastapi>=0.139.0
 uvicorn[standard]==0.30.6
 sqlalchemy==2.0.35
 psycopg2-binary==2.9.9
@@ -19,7 +19,7 @@ pandera==0.32.1
 openpyxl==3.1.5
 tensorflow-cpu==2.19.0
 statsmodels==0.14.6
-anthropic==0.120.2
+groq==1.6.0
 pyarrow==24.0.0
 python-jose[cryptography]==3.3.0
 bcrypt==4.2.0
