@@ -1,25 +1,29 @@
 """
-GEIF — Extraction intelligente de champs par LLM (Claude API)
-==================================================================
+GEIF — Extraction intelligente de champs par LLM (Groq — API gratuite)
+============================================================================
 Complète l'extraction par regex (cv_ocr/ocr.py), qui échoue sur les champs
 en texte libre (motif, objet, arguments du contribuable). Un LLM comprend
 le sens du texte OCR brut et peut extraire même quand la formulation varie
 — contrairement à une regex qui exige un format figé.
 
-⚠️ Nécessite une clé API Anthropic (variable d'environnement ANTHROPIC_API_KEY).
-Sans clé, ce module ne peut pas être testé en conditions réelles (le code est
-prêt, mais l'appel API échouera tant qu'une clé valide n'est pas fournie).
+Groq propose une API gratuite (avec limites de débit généreuses) exécutant
+des modèles open-source (Llama, Mixtral...) à très grande vitesse.
+
+⚠️ Nécessite une clé API Groq (gratuite) :
+    1. Créer un compte sur https://console.groq.com
+    2. Générer une clé API (section "API Keys")
+    3. export GROQ_API_KEY="gsk_..."
 
 Usage :
-    export ANTHROPIC_API_KEY="sk-ant-..."
+    export GROQ_API_KEY="gsk_..."
     python llm_extraction.py --text-file exemple_ocr.txt
 """
 import json
 import os
 
-from anthropic import Anthropic
+from groq import Groq
 
-MODEL = "claude-sonnet-4-6"  # Ajuster selon le modèle disponible sur ton compte
+MODEL = "llama-3.3-70b-versatile"  # Modèle gratuit performant sur Groq (ajustable)
 
 EXTRACTION_PROMPT = """Tu es un assistant d'extraction de données pour un service fiscal marocain.
 Voici le texte brut (issu d'un OCR, potentiellement imparfait) d'un document fiscal.
@@ -30,7 +34,7 @@ Extrait UNIQUEMENT les champs suivants, sous forme de JSON strict (pas de texte 
 - montant : le montant principal mentionné (nombre, sans texte)
 - reference : toute référence de dossier/affaire mentionnée
 
-Si un champ est absent du texte, mets sa valeur à null. Réponds uniquement avec le JSON.
+Si un champ est absent du texte, mets sa valeur à null. Réponds uniquement avec le JSON, sans balises markdown.
 
 Texte du document :
 ---
@@ -40,26 +44,26 @@ Texte du document :
 
 
 def extract_fields_llm(document_text: str, api_key: str = None) -> dict:
-    """Extrait les champs structurés d'un texte OCR via Claude. Retourne un
-    dict avec les champs extraits, ou un dict d'erreur si l'appel échoue
-    (ex : pas de clé API configurée)."""
-    client = Anthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
+    """Extrait les champs structurés d'un texte OCR via un LLM (Groq).
+    Retourne un dict avec les champs extraits, ou un dict d'erreur si l'appel
+    échoue (ex : pas de clé API configurée)."""
+    client = Groq(api_key=api_key or os.environ.get("GROQ_API_KEY"))
 
     try:
-        response = client.messages.create(
+        response = client.chat.completions.create(
             model=MODEL,
             max_tokens=300,
+            temperature=0,
             messages=[{
                 "role": "user",
                 "content": EXTRACTION_PROMPT.format(document_text=document_text)
             }]
         )
-        raw = response.content[0].text.strip()
-        # Nettoyage au cas où le modèle ajoute des balises markdown malgré la consigne
+        raw = response.choices[0].message.content.strip()
         raw = raw.replace("```json", "").replace("```", "").strip()
         return json.loads(raw)
     except Exception as e:
-        return {"error": str(e), "note": "Vérifie que ANTHROPIC_API_KEY est configurée."}
+        return {"error": str(e), "note": "Vérifie que GROQ_API_KEY est configurée (console.groq.com)."}
 
 
 def compare_with_regex(document_text: str, regex_fields: dict, api_key: str = None) -> dict:

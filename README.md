@@ -20,7 +20,9 @@ les principaux domaines étudiés cette année en Data & Software Sciences.
 | 3 | **Deep Learning** | `deep_learning/` | CNN de classification visuelle (mise en page du document), **intégré en direct dans l'API** en ensemble avec le classifieur texte (accord/désaccord affiché) |
 | 4 | **Time Series** | `time_series/` | Prévision du volume mensuel de documents par type d'impôt (baseline saisonnière + SARIMAX) |
 | 5 | **Data Engineering** | `data_engineering/` | Pipeline **Prefect** orchestré + entrepôt **DuckDB** : automatise l'enrichissement de contribuables par IUF (remplace la recherche manuelle type Cognos), avec validation qualité **Pandera** |
-| 6 | **Full Stack + DevOps** | `backend/`, `dashboard/`, `devops/` | API FastAPI, dashboard Streamlit, Docker, CI GitHub Actions |
+| 6 | **LLM / IA** | `deep_learning/llm_extraction.py` | Extraction de champs texte libre via LLM (Groq, gratuit) — complète les regex |
+| 7 | **Sécurité** | `backend/security.py` | JWT + bcrypt + RBAC + rate limiting anti brute-force — testé (401/403/429 corrects) |
+| 8 | **Full Stack + DevOps** | `backend/`, `dashboard/`, `devops/` | API FastAPI, Docker, CI GitHub Actions (Superset à venir pour remplacer Streamlit) |
 
 **Choix assumé :** pas de Reinforcement Learning (pas d'usage naturel identifié — mieux vaut
 5 piliers solides qu'un 6ème forcé). Le "Big Data" est traité comme un choix d'architecture

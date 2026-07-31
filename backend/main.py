@@ -12,9 +12,14 @@ Lancer localement :
 """
 import shutil
 import sys
+from datetime import timedelta
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.security import OAuth2PasswordRequestForm
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 
 # Chemins vers les autres piliers du projet (repo mono-dépôt, plusieurs dossiers)
@@ -30,8 +35,17 @@ from database import DocumentRecord, get_db, init_db  # noqa: E402
 from ocr import extract_fields, extract_text  # noqa: E402
 from forecast_volume import load_monthly_series, naive_seasonal_forecast, sarimax_forecast  # noqa: E402
 import cnn_inference  # noqa: E402
+from security import (  # noqa: E402
+    authenticate_user, create_access_token, require_permission, get_current_user,
+    ACCESS_TOKEN_EXPIRE_MINUTES, TokenData,
+)
 
 app = FastAPI(title="GEIF API", description="Gestion Electronique Intelligente des Flux fiscaux")
+
+# --- Rate limiting anti brute-force (surtout sur /token) ---
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 UPLOAD_DIR = Path("./uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -64,8 +78,29 @@ def startup():
         _ref_stats = compute_reference_stats(REFERENCE_MANIFEST)
 
 
+@app.post("/token")
+@limiter.limit("5/minute")  # Anti brute-force : 5 tentatives de connexion max par minute par IP
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Nom d'utilisateur ou mot de passe incorrect",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_access_token(
+        data={"sub": user["username"], "role": user["role"]},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return {"access_token": access_token, "token_type": "bearer", "role": user["role"]}
+
+
 @app.post("/documents/upload")
-async def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(require_permission("can_upload")),
+):
     if _classifier is None:
         raise HTTPException(500, "Modèle de classification non chargé. Entraîne-le d'abord (classifier.py train).")
 
