@@ -14,13 +14,45 @@ services:
     volumes:
       - geif_pgdata:/var/lib/postgresql/data
 
+  superset:
+    build:
+      context: ./superset
+    container_name: geif-superset
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: "CHANGE_MOI_EN_PRODUCTION_cle_de_demo_superset"
+    volumes:
+      # Monte les fichiers DuckDB générés par le projet (lecture directe,
+      # pas besoin de les recopier dans le conteneur)
+      - ../data/processed:/app/geif_data:ro
+      - ../data_engineering:/app/geif_warehouse:ro
+      - superset_home:/app/superset_home
+    command: >
+      bash -c "
+      superset db upgrade &&
+      superset fab create-admin --username admin --firstname Admin --lastname GEIF --email admin@geif.local --password admin2026 &&
+      superset init &&
+      superset run -h 0.0.0.0 -p 8088
+      "
+
 volumes:
   geif_pgdata:
+  superset_home:
 
 # Usage :
-#   1. docker compose up -d
-#   2. export DATABASE_URL=postgresql://geif_user:geif_password@localhost:5432/geif_db
-#   3. cd backend && uvicorn main:app --reload
+#   1. docker compose up -d --build
+#   2. Ouvrir http://localhost:8088 (identifiants : admin / admin2026)
+#   3. Ajouter une source de données -> SQLAlchemy URI :
+#        duckdb:////app/geif_data/fact_transactions.parquet   (via un table DuckDB, voir README)
+#      ou plus simplement, pointer directement vers un fichier .duckdb monté :
+#        duckdb:////app/geif_warehouse/fiscal_warehouse.duckdb
+#   4. Créer des datasets et des graphiques depuis l'interface Superset
+#
+# API backend (sans Superset) :
+#   export DATABASE_URL=postgresql://geif_user:geif_password@localhost:5432/geif_db
+#   cd backend && uvicorn main:app --reload
 #
 # Sans Docker (mode développement rapide) : ne rien faire, l'API utilise
 # automatiquement un fichier SQLite local (./geif.db) si DATABASE_URL

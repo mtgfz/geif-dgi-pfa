@@ -15,3 +15,4 @@ data/processed/*.json
 data/raw/irs_soi/*.csv
 *.parquet
 *.duckdb
+devops/superset/analytics.duckdb
