@@ -1,0 +1,14 @@
+{
+  "MobileNetV2": {
+    "accuracy": 1.0,
+    "duration_sec": 45.3
+  },
+  "ResNet50": {
+    "accuracy": 0.2333,
+    "duration_sec": 131.1
+  },
+  "EfficientNetB0": {
+    "accuracy": 0.2333,
+    "duration_sec": 81.3
+  }
+}
