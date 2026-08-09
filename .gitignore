@@ -17,5 +17,3 @@ data/raw/irs_soi/*.csv
 *.duckdb
 devops/superset/analytics.duckdb
 # AMMC scraper output — never commit raw PDFs in bulk
-market_data/scraper/filings/
-*.pdf

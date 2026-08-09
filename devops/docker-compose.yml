@@ -27,7 +27,7 @@ services:
       # Monte les fichiers DuckDB générés par le projet (lecture directe,
       # pas besoin de les recopier dans le conteneur)
       - ../data/processed:/app/geif_data:ro
-      - ../data_engineering:/app/geif_warehouse:ro
+      - ../data_engineering:/app/geif_warehouse
       - superset_home:/app/superset_home
     command: >
       bash -c "
