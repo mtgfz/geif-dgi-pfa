@@ -1,0 +1,43 @@
+file,error,scale_note,balance_check,used_whole_doc_fallback,total_actif_current,total_actif_previous,total_passif_current,total_passif_previous,produit_net_bancaire_current,produit_net_bancaire_previous,resultat_net_current,resultat_net_previous
+ATTIJARIWAFA_BANK_2019.pdf,,(en milliers de dirhams),n/a (one or both missing),,,,,,,,,
+ATTIJARIWAFA_BANK_2020.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+ATTIJARIWAFA_BANK_2021.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+ATTIJARIWAFA_BANK_2022.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+ATTIJARIWAFA_BANK_2023.pdf,,not found — check manually,OK,True,596325836.0,-3733462.0,596325836.0,-3733462.0,,,,
+ATTIJARIWAFA_BANK_2024.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+ATTIJARIWAFA_BANK_2025.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+Bank_of_Africa_-_Groupe_BMCE__BOA__2021.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+Bank_of_Africa_-_Groupe_BMCE__BOA__2022.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+Bank_of_Africa_-_Groupe_BMCE__BOA__2023.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+Bank_of_Africa_-_Groupe_BMCE__BOA__2024.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+Bank_of_Africa_-_Groupe_BMCE__BOA__2025.pdf,,not found — check manually,n/a (one or both missing),,297.0,5806041412.0,,,,,,
+Banque_Centrale_Populaire__BCP__2020.pdf,,not found — check manually,OK,,263019049.0,255088148.0,263019049.0,255088148.0,,,2103343.0,2581826.0
+Banque_Centrale_Populaire__BCP__2021.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+Banque_Centrale_Populaire__BCP__2022.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+Banque_Centrale_Populaire__BCP__2023.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+Banque_Centrale_Populaire__BCP__2024.pdf,,not found — check manually,n/a (one or both missing),,,,,,10018334.0,7529052.0,2939923.0,2597884.0
+Banque_Centrale_Populaire__BCP__2025.pdf,,not found — check manually,n/a (one or both missing),,,,,,11076351.0,10018334.0,3282906.0,2939923.0
+BMCI_2020.pdf,,not found — check manually,n/a (one or both missing),,64609362.0,65650364.0,,,,,,
+BMCI_2021.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+BMCI_2022.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+BMCI_2023.pdf,,not found — check manually,OK,True,259149.0,9520.0,259149.0,92663748.0,45874.0,45430.0,593.0,655.0
+BMCI_2024.pdf,,not found — check manually,n/a (one or both missing),,72997292.0,72770516.0,,,-685768.0,-425385.0,462034.0,395311.0
+BMCI_2025.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+CDG_capital_2019.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+CDG_capital_2020.pdf,,not found — check manually,OK,True,11832.0,10035.0,11832.0,10035.0,,,92.0,81.0
+CDG_capital_2021.pdf,,not found — check manually,OK,True,15088.0,11832.0,15088.0,11832.0,,,90.0,92.0
+CDG_capital_2022.pdf,,not found — check manually,OK,True,14136238.0,15087641.0,14136238.0,15087641.0,,,,
+CDG_capital_2023.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+CDG_capital_2024.pdf,,en milliers de dirhams),n/a (one or both missing),,,,,,,,,
+CDG_capital_2025.pdf,,en milliers de dirhams),n/a (one or both missing),,,,,,,,,
+CIH_Bank_2019.pdf,,not found — check manually,OK,True,65757402.0,57058313.0,65757402.0,57058313.0,,,451399.0,447021.0
+CIH_Bank_2020.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,249.345,451.399
+CIH_Bank_2021.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,466.559,249.345
+CIH_Bank_2022.pdf,target pages not found,,n/a,,,,,,,,,
+CIH_Bank_2023.pdf,,not found — check manually,n/a (one or both missing),,327.813,,,,,,620.007,592.734
+CIH_Bank_2024.pdf,,not found — check manually,OK,,114762061.0,104745221.0,114762061.0,104745221.0,,,750043.0,620007.0
+CIH_Bank_2025.pdf,,not found — check manually,n/a (one or both missing),,,,,,,,,
+Crédit_du_Maroc__CDM__2022.pdf,,En millions de dirhams,OK,True,62379080.0,58170036.0,62379080.0,58170036.0,2407291.0,2328992.0,420427.0,687411.0
+Crédit_du_Maroc__CDM__2023.pdf,,En millions de dirhams,OK,True,66857168.0,62379080.0,66857168.0,62379080.0,2766396.0,2407291.0,532791.0,420427.0
+Crédit_du_Maroc__CDM__2024.pdf,,En millions de dirhams,OK,True,73387482.0,66857168.0,73387482.0,66857168.0,3081456.0,2766396.0,698436.0,532791.0
+Crédit_du_Maroc__CDM__2025.pdf,,En millions de dirhams,OK,True,83161200.0,73387482.0,83161200.0,73387482.0,3246327.0,3081456.0,804451.0,698436.0
