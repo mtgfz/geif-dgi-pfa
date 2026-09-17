@@ -6,56 +6,65 @@ Stage : Direction Régionale des Impôts (DRI) de Rabat, Subdivision Fiscalité 
 ## 🎯 Objectif
 
 Automatiser le traitement documentaire fiscal (lecture, classification, validation, détection
-d'anomalies) et anticiper la charge de travail du service via la prévision de volume.
+d'anomalies) et anticiper la charge de travail du service via la prévision de volume — et,
+plus récemment, automatiser le traitement de premier niveau des réclamations fiscales (IS, IR,
+TVA) en s'appuyant sur une recherche réelle dans le Code Général des Impôts (CGI), avec
+validation humaine systématique avant toute décision finale.
 
 Ce projet a été conçu pour rassembler, de façon **cohérente et honnête** (pas superficielle),
 les principaux domaines étudiés cette année en Data & Software Sciences.
 
-## 🏛️ Les 5 piliers du projet
+## 🏛️ Les piliers du projet
 
-| # | Pilier | Où | Ce que ça fait |
-|---|---|---|---|
-| 1 | **Computer Vision** | `cv_ocr/` | OCR (Tesseract) sur documents scannés + extraction de champs |
-| 2 | **Machine Learning** | `ml_classification/` | Classification de type de document (TF-IDF + LogReg) + détection d'anomalies (z-score) |
-| 3 | **Deep Learning** | `deep_learning/` | CNN de classification visuelle (mise en page du document), **intégré en direct dans l'API** en ensemble avec le classifieur texte (accord/désaccord affiché) |
-| 4 | **Time Series** | `time_series/` | Prévision du volume mensuel de documents par type d'impôt (baseline saisonnière + SARIMAX) |
-| 5 | **Data Engineering** | `data_engineering/` | Pipeline **Prefect** orchestré + entrepôt **DuckDB** : automatise l'enrichissement de contribuables par IUF (remplace la recherche manuelle type Cognos), avec validation qualité **Pandera** |
-| 6 | **LLM / IA** | `deep_learning/llm_extraction.py` | Extraction de champs texte libre via LLM (Groq, gratuit) — complète les regex |
-| 7 | **Sécurité** | `backend/security.py` | JWT + bcrypt + RBAC + rate limiting anti brute-force — testé (401/403/429 corrects) |
-| 8 | **Full Stack + DevOps** | `backend/`, `dashboard/`, `devops/` | API FastAPI, Docker, CI GitHub Actions (Superset à venir pour remplacer Streamlit) |
+| # | Pilier                        | Où                                     | Ce que ça fait |
+|---|-------------------------------|-----------------------------------------|-----------------|
+| 1 | **Computer Vision**            | `cv_ocr/`                               | OCR (Tesseract) sur documents scannés + extraction de champs |
+| 2 | **Machine Learning**            | `ml_classification/`                    | Classification de type de document (TF-IDF + LogReg) + détection d'anomalies (z-score) |
+| 3 | **Deep Learning**               | `deep_learning/`                        | CNN de classification visuelle (mise en page du document), complémentaire au ML texte |
+| 4 | **Time Series**                 | `time_series/`                          | Prévision du volume mensuel de documents par type d'impôt (baseline saisonnière + SARIMAX) |
+| 5 | **Full Stack + DevOps**         | `backend/`, `dashboard/`, `devops/`      | API FastAPI, dashboard Streamlit, Docker, CI GitHub Actions |
+| 6 | **Données Marché (AMMC)**       | `market_data/`                          | Scraping réel de 7 banques marocaines cotées (ammc.ma) → parsing PDF → validation comptable → DuckDB → Superset |
+| 7 | **Réclamations automatisées (RAG + LLM + apprentissage)** | `rag/`, `backend/reclamations_api.py` | Traitement automatique des réclamations IS/IR/TVA : recherche réelle dans le CGI (RAG local, ChromaDB), génération du rapport/décision par LLM (Groq), apprentissage bayésien (bandit Beta-Bernoulli) sur la confiance par règle à partir des validations du gestionnaire |
 
-**Choix assumé :** pas de Reinforcement Learning (pas d'usage naturel identifié — mieux vaut
-5 piliers solides qu'un 6ème forcé). Le "Big Data" est traité comme un choix d'architecture
-scalable plutôt qu'un vrai volume massif (le dataset est synthétique, à échelle raisonnable
-pour un POC d'un mois).
+**Sur le choix "pas de RL" de la version précédente** : le pilier 7 introduit un bandit
+Beta-Bernoulli pour ajuster la confiance de chaque règle CGI selon les décisions du
+gestionnaire (accepter / modifier / rejeter) — une vraie technique de RL (simple, mais
+authentique), avec un usage naturel identifié a posteriori. À assumer comme une évolution
+du projet, pas une incohérence cachée.
 
 ## 📂 Structure du repo
 
 ```
 geif-dgi-pfa/
 ├── data/
-│   ├── generators/        # Scripts de génération de données synthétiques
-│   ├── raw/                # (vide, réservé à d'éventuelles données réelles anonymisées)
-│   └── processed/          # Données générées (ignorées par git, reproductibles via scripts)
-├── cv_ocr/                 # Pilier 1 — OCR + extraction de champs
-├── ml_classification/      # Pilier 2 — Classification ML + anomalies
-├── deep_learning/          # Pilier 3 — CNN de classification visuelle
-├── time_series/            # Pilier 4 — Prévision de volume
-├── data_engineering/       # Pilier 5 — Pipeline Prefect + entrepôt DuckDB + validation Pandera
-├── backend/                # Pilier 6 — API FastAPI
-├── dashboard/               # Pilier 6 — Dashboard Streamlit
-├── devops/                  # Pilier 6 — Dockerfile, docker-compose
-├── .github/workflows/       # CI (tests automatiques à chaque push)
-├── docs/                    # Rapport, diagrammes
-└── notebooks/                # Exploration ponctuelle (EDA, prototypage)
+│   ├── generators/          # Scripts de génération de données synthétiques
+│   ├── raw/                  # (vide, réservé à d'éventuelles données réelles anonymisées)
+│   └── processed/            # Données générées (ignorées par git, reproductibles via scripts)
+├── cv_ocr/                   # Pilier 1 — OCR + extraction de champs
+├── ml_classification/        # Pilier 2 — Classification ML + anomalies
+├── deep_learning/            # Pilier 3 — CNN de classification visuelle
+├── time_series/              # Pilier 4 — Prévision de volume
+├── backend/                  # Pilier 5 — API FastAPI (+ reclamations_api.py, pilier 7)
+├── dashboard/                 # Pilier 5 — Dashboard Streamlit
+├── devops/                    # Pilier 5 — Dockerfile, docker-compose
+├── market_data/                # Pilier 6 — Scraper AMMC, parsing PDF, chargement DuckDB
+│   ├── scraper/
+│   ├── parsing/
+│   └── analytics/
+├── rag/                        # Pilier 7 — Ingestion du CGI, base vectorielle (ChromaDB)
+│   ├── ingest_pdfs.py
+│   └── data/CGI.pdf
+├── .github/workflows/          # CI (tests automatiques à chaque push)
+├── docs/                        # Rapport, diagrammes
+└── notebooks/                    # Exploration ponctuelle (EDA, prototypage)
 ```
 
 ## 🚀 Reproduire le pipeline complet
 
-```bash
+```powershell
 pip install -r requirements.txt
 
-# 1. Générer les données synthétiques
+# 1. Générer les données synthétiques (piliers 1-4)
 cd data/generators
 python generate_documents.py --n 200 --out ../processed/synthetic_dataset
 python generate_fiscal_timeseries.py --years 3 --out ../processed/fiscal_timeseries.csv
@@ -72,40 +81,58 @@ python train_cnn_classifier.py --dataset ../data/processed/synthetic_dataset --e
 cd ../time_series
 python forecast_volume.py --tax-type TVA --horizon 6
 
-# 3bis. Pipeline d'automatisation (Data Engineering) — remplace la recherche
-# manuelle type Cognos par un enrichissement automatique par IUF
-cd ../data_engineering
-python build_mock_warehouse.py --n 500 --out ./fiscal_warehouse.duckdb
-python enrich_pipeline.py --input tes_iufs.xlsx --warehouse ./fiscal_warehouse.duckdb --output enrichi.xlsx
+# 4. Pilier 6 — Marché AMMC
+cd ../market_data/scraper
+python ammc_scraper.py
+cd ../parsing
+python financial_pdf_parser.py
+cd ../analytics
+python load_to_duckdb.py
 
-# 4. Lancer l'API + le dashboard
+# 5. Pilier 7 — RAG sur le CGI (une fois, ou après mise à jour du PDF)
+cd ../../rag
+python ingest_pdfs.py --cgi data\CGI.pdf
+
+# 6. Lancer les APIs + le dashboard
 cd ../backend
 uvicorn main:app --reload --port 8000
-# (dans un autre terminal)
+# dans un autre terminal : le moteur de réclamations (pilier 7)
+uvicorn reclamations_api:app --port 8010
+# dans un autre terminal : le dashboard
 cd ../dashboard
 streamlit run app.py
 ```
 
 ## ⚠️ Confidentialité
 
-Aucune donnée réelle de contribuable n'est utilisée. Toutes les données (documents,
-historique temporel) sont générées synthétiquement via les scripts de `data/generators/`.
+Aucune donnée réelle de contribuable n'est utilisée pour les piliers 1-4 (données synthétiques,
+scripts dans `data/generators/`). Les données du pilier 6 (AMMC) sont des états financiers
+publics de sociétés cotées, pas des données de contribuables. Le pilier 7 (réclamations) traite
+des cas fictifs à ce stade — aucun dossier réel de contribuable n'y a été introduit.
 
 ## 🔬 Limites connues (à assumer dans le rapport, pas à cacher)
 
 - **CNN visuel** : entraîné sur peu d'images synthétiques dans le POC — accuracy monte
   progressivement avec plus de données/epochs, ce qui est normal et attendu pour un DL from-scratch.
-  En pratique, le modèle texte (ML) est nettement plus fiable que le modèle visuel (CNN) sur ce
-  jeu de données (les templates se ressemblent visuellement) — résultat honnête à présenter,
-  pas un échec caché.
 - **Time series** : la saisonnalité est simulée de façon simplifiée ; en conditions réelles,
   d'autres facteurs (jours fériés, campagnes de relance) influenceraient le volume.
 - **Big Data** : l'architecture est pensée pour être compatible avec un traitement par batch à
   plus grande échelle, mais le volume actuel reste un POC, pas un vrai big data.
+- **Marché AMMC (pilier 6)** : sur 42 rapports annuels collectés, seuls 9 exercices sont validés
+  avec certitude par le contrôle comptable automatique (Total Actif = Total Passif) ; les autres
+  échouent surtout sur des structures de rapport non standard (ex. Attijariwafa, rapport
+  consolidé sur 100+ pages).
+- **RAG / réclamations (pilier 7)** : le retrieval sémantique sur le CGI est solide sur les cas
+  testés pour le délai de réclamation et les charges déductibles IS, mais reste imparfait sur
+  certaines questions TVA (articles noyés parmi des mentions lexicalement proches). C'est
+  pourquoi la validation humaine du gestionnaire reste obligatoire avant toute décision finale —
+  ce n'est pas un système entièrement autonome.
 
 ## 📈 Extensions possibles
 
-- Réutiliser les modèles BiLSTM/N-BEATS/TiDE du projet AIOps pour la prévision (au lieu de
-  SARIMAX) si le temps le permet.
-- RAG/chatbot pour les questions fréquentes des contribuables.
+- Étendre le retrieval RAG avec un modèle de ré-classement (cross-encoder) pour améliorer la
+  précision sur les cas ambigus (TVA notamment).
+- Étendre la couverture AMMC aux 33 exercices restants.
+- Étendre le moteur de réclamations à TP/TSC/TL (régis par la loi 47-06, pas le CGI — corpus
+  RAG séparé à construire).
 - Intégration réelle avec un système comme SIT/SIMPL (voir chapitre 1 du rapport).
