@@ -1,45 +1,49 @@
 """
-GEIF - Modèles de base de données
-====================================
-SQLAlchemy ORM. Fonctionne en SQLite par défaut (zéro config, idéal pour
-développer/tester), et bascule sur PostgreSQL si la variable d'environnement
-DATABASE_URL est définie (déploiement cible : postgresql://user:pass@host/db).
+Connexion MongoDB centralisée + création des index.
+Un seul client Mongo pour toute l'application (réutilisé par tous les routers).
 """
-import os
-from datetime import datetime
+from pymongo import MongoClient, ASCENDING, DESCENDING
+from .config import settings
 
-from sqlalchemy import Column, DateTime, Float, Integer, JSON, String, Boolean, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+_client = MongoClient(settings.MONGO_URI, serverSelectionTimeoutMS=4000)
+db = _client[settings.MONGO_DB_NAME]
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./geif.db")
-
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-
-class DocumentRecord(Base):
-    __tablename__ = "documents"
-
-    id = Column(Integer, primary_key=True, index=True)
-    filename = Column(String, index=True)
-    predicted_type = Column(String, index=True)
-    prediction_confidence = Column(Float)
-    extracted_fields = Column(JSON)
-    missing_fields = Column(JSON)
-    anomalies = Column(JSON)
-    is_flagged = Column(Boolean, default=False)
-    processed_at = Column(DateTime, default=datetime.utcnow)
+col_users = db["users"]
+col_reclamations = db["reclamations"]
+col_rules = db["rules"]
+col_corrections = db["corrections"]
+col_predictions_log = db["predictions_log"]  # historique des prédictions vs réalité (pour évaluer le modèle)
+col_feedback_log = db["feedback_log"]  # TOUTES les décisions (accept/modify/reject) — base de la courbe d'apprentissage
+col_documents = db["documents"]  # pièces jointes déposées via le portail SIT (contenu + texte OCR)
+col_messages = db["messages"]  # fil de discussion contribuable ↔ gestionnaire, par réclamation
 
 
-def init_db():
-    Base.metadata.create_all(bind=engine)
-
-
-def get_db():
-    db = SessionLocal()
+def ping() -> bool:
     try:
-        yield db
-    finally:
-        db.close()
+        _client.admin.command("ping")
+        return True
+    except Exception:
+        return False
+
+
+def init_indexes():
+    col_users.create_index("username", unique=True)
+    col_reclamations.create_index([("created_at", DESCENDING)])
+    col_reclamations.create_index("status")
+    col_reclamations.create_index("tax")
+    col_corrections.create_index([("rule_id", ASCENDING), ("created_at", DESCENDING)])
+    col_documents.create_index("reclamation_id")
+    col_messages.create_index([("reclamation_id", ASCENDING), ("created_at", ASCENDING)])
+
+
+def sans_id_mongo(doc: dict) -> dict:
+    """Retire le champ _id (spécifique Mongo) avant de renvoyer au frontend.
+    cle_verification n'est JAMAIS renvoyée ici : c'est un secret côté
+    contribuable, communiqué uniquement par e-mail à la création — même le
+    personnel interne n'en a pas besoin pour son propre travail."""
+    d = dict(doc)
+    d.pop("_id", None)
+    d.pop("password_hash", None)
+    d.pop("cle_verification", None)
+    d.pop("contenu_b64", None)
+    return d

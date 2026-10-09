@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pymongo
+pyjwt
+bcrypt
+python-dotenv
+requests
+chromadb
+sentence-transformers
+duckdb

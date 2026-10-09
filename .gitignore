@@ -17,3 +17,11 @@ data/raw/irs_soi/*.csv
 *.duckdb
 devops/superset/analytics.duckdb
 # AMMC scraper output — never commit raw PDFs in bulk
+
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.pyc
+.env
+.next/

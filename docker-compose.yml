@@ -1,0 +1,15 @@
+# Optionnel : lance juste MongoDB en local sans installer quoi que ce soit.
+# Usage : docker compose up -d
+# Puis backend/.env garde MONGO_URI=mongodb://localhost:27017 (par défaut).
+services:
+  mongo:
+    image: mongo:7
+    container_name: geif-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - geif_mongo_data:/data/db
+
+volumes:
+  geif_mongo_data:

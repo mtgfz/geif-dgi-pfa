@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>GEIF — Traitement Automatique des Réclamations</title>
+<style>
+  :root{
+    --paper:#EAF4FC; --paper-raised:#F6FAFE; --ink:#0B3A5C; --ink-soft:#4A7290;
+    --line:#BFDCF0; --line-soft:#DCEEFA; --seal:#8B2A2A; --seal-soft:#F0D3D3;
+    --blue:#1E6FB8; --blue-soft:#D3E8FA; --green:#2F7A4F; --green-soft:#D4EFE0;
+    --amber:#8A6A22; --amber-soft:#F5EBD2;
+    --mono:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
+    --serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+    --sans:-apple-system,"Segoe UI",Inter,Roboto,Arial,sans-serif;
+    --radius:4px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+  header.top{border-bottom:1px solid var(--line); background:var(--paper-raised); padding:24px 48px 20px;}
+  header.top .top-row-header, header.top p.sub, header.top .api-status{max-width:1800px; margin-left:auto; margin-right:auto;}
+  header.top .eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft);}
+  header.top h1{font-family:var(--serif); font-weight:600; font-size:26px; margin:4px 0 6px;}
+  header.top p.sub{margin:0; font-size:13px; color:var(--ink-soft); max-width:760px; line-height:1.5;}
+  .api-status{display:inline-flex; align-items:center; gap:6px; margin-top:10px; font-family:var(--mono); font-size:10.5px; letter-spacing:.05em;}
+  .dot{width:7px;height:7px;border-radius:50%; background:#999;}
+  .dot.ok{background:var(--green);} .dot.ko{background:var(--seal);}
+
+  .layout{display:grid; grid-template-columns:400px 1fr 380px; min-height:calc(100vh - 118px); max-width:1800px; margin:0 auto;}
+  @media (max-width:1100px){.layout{grid-template-columns:1fr;}}
+
+  .queue-col{border-right:1px solid var(--line); padding:18px; background:var(--paper-raised);}
+  .queue-col h2, .rl-col h2{font-family:var(--serif); font-size:15px; margin:0 0 10px; display:flex; justify-content:space-between;}
+  .queue-col h2 span{font-family:var(--mono); font-size:11px; color:var(--ink-soft); font-weight:400;}
+  .add-btn{width:100%; padding:9px; background:var(--ink); color:#fff; border:none; border-radius:var(--radius); font-size:12.5px; cursor:pointer; margin-bottom:14px;}
+  .add-btn:hover{background:#0c1826;}
+  .add-btn:disabled{opacity:.5; cursor:wait;}
+
+  .form-card{border:1px solid var(--line); background:#fff; border-radius:var(--radius); padding:12px; margin-bottom:14px; display:none;}
+  .form-card.open{display:block;}
+  .form-card label{display:block; font-size:10.5px; color:var(--ink-soft); margin:7px 0 3px; font-family:var(--mono);}
+  .form-card input,.form-card select{width:100%; padding:6px 7px; border:1px solid var(--line); border-radius:2px; font-size:12px; background:#FCFCFB;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .form-card .submit{margin-top:10px; width:100%; background:var(--green); color:#fff; border:none; padding:8px; border-radius:2px; cursor:pointer; font-size:12px;}
+
+  .dossier-card{border:1px solid var(--line); background:#fff; border-radius:var(--radius); padding:11px; margin-bottom:9px; cursor:pointer;}
+  .dossier-card:hover{border-color:var(--ink-soft);}
+  .dossier-card.active{border-color:var(--ink); box-shadow:0 0 0 1px var(--ink);}
+  .top-row{display:flex; justify-content:space-between; align-items:flex-start;}
+  .tax-tag{font-family:var(--mono); font-size:10px; padding:2px 6px; border-radius:2px;}
+  .tax-tag.IS{background:#E7EEF5; color:#274769;} .tax-tag.TVA{background:#F2ECE0; color:#6B5324;}
+  .ref{font-family:var(--mono); font-size:10px; color:var(--ink-soft);}
+  .dossier-card h3{font-size:12.5px; margin:7px 0 3px; font-family:var(--serif);}
+  .motif{font-size:11px; color:var(--ink-soft); margin-bottom:7px;}
+  .status-pill{display:inline-block; font-size:9.5px; font-family:var(--mono); padding:2px 7px; border-radius:9px;}
+  .status-pill.nouvelle{background:#EDEDED; color:#555;}
+  .status-pill.attente{background:var(--amber-soft); color:var(--amber);}
+  .status-pill.validee{background:var(--green-soft); color:var(--green);}
+  .status-pill.modifiee{background:#DDE6F0; color:#2C4A6E;}
+  .status-pill.rejetee{background:var(--seal-soft); color:var(--seal);}
+  .treat-all{width:100%; padding:8px; background:#fff; border:1px dashed var(--ink-soft); border-radius:var(--radius); font-size:11px; cursor:pointer; font-family:var(--mono); margin-top:10px;}
+
+  .detail-col{padding:28px 40px; overflow-y:auto;}
+  .empty-state{height:70%; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); font-family:var(--serif); font-size:14px; text-align:center; max-width:340px; margin:70px auto 0; line-height:1.6;}
+
+  .dossier-head{display:flex; justify-content:space-between; border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:16px;}
+  .id-line{font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin-bottom:4px;}
+  .dossier-head h2{font-family:var(--serif); font-size:20px; margin:0 0 4px;}
+  .meta{font-size:12px; color:var(--ink-soft);}
+  .seal{width:80px;height:80px;border-radius:50%;border:2px solid var(--seal); display:flex; align-items:center; justify-content:center; transform:rotate(-11deg) scale(0); color:var(--seal); font-family:var(--mono); font-size:8.5px; text-align:center; padding:6px; line-height:1.25; opacity:0; transition:transform .5s cubic-bezier(.34,1.56,.64,1), opacity .35s;}
+  .seal.stamped{transform:rotate(-11deg) scale(1); opacity:1;}
+
+  .field-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:18px;}
+  .field-box{border:1px solid var(--line-soft); background:var(--paper-raised); border-radius:var(--radius); padding:9px 11px;}
+  .field-box .label{font-family:var(--mono); font-size:9.5px; color:var(--ink-soft); text-transform:uppercase;}
+  .field-box .value{font-size:13px; margin-top:3px; font-weight:600;}
+
+  .source-tag{display:inline-block; font-family:var(--mono); font-size:9.5px; padding:2px 7px; border-radius:2px; margin-bottom:12px; margin-right:6px;}
+  .source-tag.groq{background:var(--green-soft); color:var(--green);}
+  .source-tag.repli{background:#EEE4C8; color:#7A5E1E;}
+  .source-tag.faible{background:var(--seal-soft); color:var(--seal);}
+
+  .doc-block{border:1px solid var(--line); background:#fff; border-radius:var(--radius); margin-bottom:14px; overflow:hidden;}
+  .doc-title{font-family:var(--serif); font-size:13.5px; padding:9px 14px; background:var(--paper-raised); border-bottom:1px solid var(--line-soft); display:flex; justify-content:space-between; align-items:center;}
+  .doc-title .art{font-family:var(--mono); font-size:10px; color:var(--blue); background:var(--blue-soft); padding:2px 7px; border-radius:2px;}
+  .doc-body{padding:13px 14px; font-size:12.5px; line-height:1.6; white-space:pre-line;}
+  textarea{width:100%; min-height:110px; border:1px dashed var(--line); border-radius:2px; padding:9px; font-family:var(--sans); font-size:12.5px; line-height:1.55;}
+
+  .confidence-line{display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); margin-bottom:14px;}
+  .bar{flex:1; height:6px; background:#E4E4E1; border-radius:4px; overflow:hidden;}
+  .bar>i{display:block; height:100%; background:var(--green);}
+
+  .action-row{display:flex; gap:9px; margin-top:4px;}
+  .action-row button{flex:1; padding:9px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; cursor:pointer; font-size:12px; font-weight:600;}
+  .action-row .accept{background:var(--green); color:#fff; border-color:var(--green);}
+  .action-row .modify{background:#fff;} .action-row .reject{background:var(--seal); color:#fff; border-color:var(--seal);}
+  .save-modif{margin-top:8px; background:#2C4A6E; color:#fff; border:none; padding:7px 13px; border-radius:2px; font-size:11.5px; cursor:pointer; display:none;}
+  .save-modif.show{display:inline-block;}
+
+  .rl-col{border-left:1px solid var(--line); padding:18px; background:var(--paper-raised);}
+  .panel-tabs{display:flex; gap:4px; margin-bottom:12px; border-bottom:1px solid var(--line);}
+  .ptab{flex:1; padding:7px 4px; background:none; border:none; border-bottom:2px solid transparent; cursor:pointer; font-family:var(--serif); font-size:13.5px; color:var(--ink-soft);}
+  .ptab.active{color:var(--ink); border-bottom-color:var(--ink); font-weight:600;}
+  .stat-big{border:1px solid var(--line-soft); background:#fff; border-radius:var(--radius); padding:10px 12px; margin-bottom:8px;}
+  .stat-big .lab{font-family:var(--mono); font-size:9.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em;}
+  .stat-big .val{font-size:19px; font-weight:600; font-family:var(--serif); margin-top:2px;}
+  .stat-big .sub2{font-size:10.5px; color:var(--ink-soft); margin-top:2px;}
+  .stat-row{display:flex; justify-content:space-between; font-size:11.5px; padding:4px 0; border-bottom:1px dotted var(--line-soft);}
+  .stat-row span:last-child{font-family:var(--mono); font-size:11px;}
+  .stat-section{font-family:var(--mono); font-size:9.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin:14px 0 5px;}
+  .rl-col .sub{font-size:10.5px; color:var(--ink-soft); margin:-4px 0 14px; line-height:1.5;}
+  .rule-row{margin-bottom:12px;}
+  .rname{font-size:11px; font-weight:600; margin-bottom:2px;}
+  .rmeta{font-family:var(--mono); font-size:9.5px; color:var(--ink-soft); margin-bottom:4px; display:flex; justify-content:space-between;}
+  .rule-row .bar{height:6px;}
+  .rule-row.IS .bar>i{background:#3A5C82;} .rule-row.TVA .bar>i{background:#8A6A22;}
+  .rl-note{margin-top:16px; border:1px dashed var(--line); padding:11px; font-size:10.5px; color:var(--ink-soft); line-height:1.55; border-radius:var(--radius);}
+
+  .toast{position:fixed; bottom:20px; right:20px; background:var(--ink); color:#fff; padding:10px 15px; border-radius:4px; font-size:12px; opacity:0; transform:translateY(8px); transition:.25s; z-index:50;}
+  .toast.show{opacity:1; transform:translateY(0);}
+  .loading{color:var(--ink-soft); font-family:var(--mono); font-size:11px; padding:20px 0; text-align:center;}
+
+  /* ===== Document officiel — mêmes classes que Uniform_V2.html ===== */
+  .doc-page{ background:#fff; max-width:800px; margin:0 auto 20px; padding:26px 34px 38px; font-family:'Times New Roman', Times, serif; color:#111; box-shadow:0 4px 16px rgba(0,0,0,0.12); line-height:1.5; border:1.5px solid var(--blue); }
+  .doc-page .doc-header-logos{ display:flex; align-items:center; justify-content:space-between; border-bottom:1.5px solid #1B3A5C; padding-bottom:10px; margin-bottom:14px; }
+  .doc-page .doc-header-logos img{ height:52px; object-fit:contain; }
+  .doc-page .doc-header-logos img.royaume{ height:60px; }
+  .doc-page .modele-ref{ text-align:right; font-family:var(--mono); font-size:10px; color:#888; margin:-8px 0 4px; }
+  .doc-page h2.dtitle{ text-align:center; font-size:16px; letter-spacing:.02em; margin:0 0 14px; background:#1B3A5C; color:#fff; padding:9px 12px; text-transform:uppercase; }
+  .doc-page p.sect-title{ font-weight:bold; font-size:13px; margin:16px 0 8px; text-transform:uppercase; letter-spacing:.02em; background:#EDF0EE; border-left:5px solid #1B3A5C; padding:6px 9px; }
+  .doc-page ul.infolist{ list-style:disc; padding-left:20px; margin:10px 0; font-size:13.5px; }
+  .doc-page ul.infolist li{ margin-bottom:3px; }
+  .doc-page p.body-text{ font-size:13.5px; text-align:justify; margin:0 0 10px; }
+  .doc-page table.doc-table{ width:auto; min-width:60%; margin:8px auto 14px; border-collapse:collapse; font-size:12.5px; }
+  .doc-page table.doc-table th, .doc-page table.doc-table td{ border:1px solid #000; padding:5px 12px; text-align:center; }
+  .doc-page table.doc-table th{ font-weight:bold; background:#e6e6e6; }
+  .doc-page table.sig-table{ width:100%; border-collapse:collapse; margin-top:26px; font-size:12.5px; }
+  .doc-page table.sig-table th{ border:1px solid #000; padding:5px; font-weight:bold; text-align:center; background:#e6e6e6; }
+  .doc-page table.sig-table td{ border:1px solid #000; height:54px; vertical-align:top; padding:5px; font-size:11.5px; }
+  .doc-page .art-ref{ text-align:right; font-size:11px; color:#555; margin:-6px 0 10px; }
+  .doc-actions{ display:flex; gap:9px; margin:14px 0; }
+  .doc-actions button{ padding:8px 14px; border-radius:2px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:12px; font-weight:600; }
+  @media print{ body *{ visibility:hidden; } .doc-page, .doc-page *{ visibility:visible; } .doc-page{ box-shadow:none; border:none; margin:0; position:absolute; top:0; left:0; } }
+
+  .top-row-header{display:flex; align-items:center; gap:16px;}
+  .top-logo{height:44px; object-fit:contain;}
+  #userBox{display:flex; align-items:center; gap:10px;}
+  .user-label{font-family:var(--mono); font-size:11.5px; color:var(--ink-soft);}
+  .logout-btn{padding:6px 12px; background:#fff; border:1px solid var(--line); border-radius:var(--radius); font-size:11.5px; cursor:pointer;}
+  .logout-btn:hover{background:var(--paper);}
+
+  .login-overlay{position:fixed; inset:0; background:rgba(11,58,92,0.55); display:flex; align-items:center; justify-content:center; z-index:100;}
+  .login-overlay.hidden{display:none;}
+  .login-box{background:#fff; padding:32px 36px; border-radius:8px; width:320px; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,0.25);}
+  .login-box h2{font-family:var(--serif); margin:4px 0 4px;}
+  .login-box label{display:block; text-align:left; font-size:11px; color:var(--ink-soft); font-family:var(--mono); margin:10px 0 3px;}
+  .login-box input{width:100%; padding:8px; border:1px solid var(--line); border-radius:4px; font-size:13px;}
+  .login-box .submit{width:100%; margin-top:16px; padding:10px; background:var(--blue); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:600;}
+  .login-error{color:var(--seal); font-size:11.5px; margin-top:8px; min-height:16px;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row-header">
+    <img src="assets/logos/DGI.png" alt="DGI" class="top-logo">
+    <div style="flex:1;">
+      <div class="eyebrow">GEIF — Gestion Électronique Intelligente des Flux fiscaux</div>
+      <h1>Traitement Automatique des Réclamations</h1>
+    </div>
+    <div id="userBox" style="display:none;">
+      <span id="userLabel" class="user-label"></span>
+      <button class="logout-btn" onclick="logout()">Déconnexion</button>
+    </div>
+  </div>
+  <p class="sub">File de réclamations traitées automatiquement (rapport + décision motivés par le CGI, retrouvé par RAG, rédigés par le LLM) puis validées par le gestionnaire. Périmètre : IS, IR, TVA — les impôts régis par le CGI. Backend réel : FastAPI + SQLite + ChromaDB + apprentissage bayésien.</p>
+  <div class="api-status"><span class="dot" id="apiDot"></span><span id="apiText">Connexion à l'API…</span></div>
+</header>
+
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-box">
+    <img src="assets/logos/royaume.png" alt="Royaume du Maroc" style="height:56px; margin-bottom:10px;">
+    <h2>Espace Gestionnaire</h2>
+    <p class="sub" style="margin-bottom:16px;">Connexion requise pour traiter et valider les réclamations.</p>
+    <label>Identifiant</label>
+    <input id="login-user" value="gestionnaire">
+    <label>Mot de passe</label>
+    <input id="login-pass" type="password">
+    <button class="submit" onclick="login()">Se connecter</button>
+    <div id="loginError" class="login-error"></div>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="queue-col">
+    <h2>File des réclamations <span id="queueCount">0</span></h2>
+    <p class="sub" style="margin:-4px 0 14px;">Les réclamations proviennent du portail SIT (espace contribuable) — aucune saisie manuelle ici.</p>
+
+    <div id="queueList"><div class="loading">Chargement…</div></div>
+    <button class="treat-all" id="treatAll">▶ Traiter automatiquement les nouvelles réclamations</button>
+  </div>
+
+  <div class="detail-col" id="detailCol">
+    <div class="empty-state">Sélectionnez une réclamation, ou déposez-en une nouvelle.</div>
+  </div>
+
+  <div class="rl-col">
+    <div class="panel-tabs">
+      <button class="ptab active" data-panel="apprentissage">Apprentissage</button>
+      <button class="ptab" data-panel="stats">Statistiques</button>
+      <button class="ptab" data-panel="marche">Marché</button>
+    </div>
+
+    <div id="panel-apprentissage">
+      <p class="sub">Confiance = moyenne bayésienne (Beta-Bernoulli) réellement recalculée à chaque validation du gestionnaire.</p>
+      <div id="rlList"><div class="loading">…</div></div>
+      <div class="rl-note">Technique réelle de bandit manchot (Thompson sampling / Beta-Bernoulli) : α augmente à chaque validation acceptée, β augmente à chaque rejet. Simplifiée par rapport à un RL profond, mais authentique.</div>
+    </div>
+
+    <div id="panel-stats" style="display:none;">
+      <p class="sub">Indicateurs calculés en SQL sur la base réelle — aucune valeur simulée.</p>
+      <div id="statsContent"><div class="loading">…</div></div>
+    </div>
+
+    <div id="panel-marche" style="display:none;">
+      <p class="sub">Référentiel sectoriel — bilans réels de banques marocaines cotées (source AMMC, Pilier 9).</p>
+      <div id="marcheContent"><div class="loading">…</div></div>
+      <div class="rl-note">Contexte sectoriel consultable uniquement : ces données n'interviennent pas dans le calcul des décisions de réclamation. Seuls les exercices ayant passé le contrôle Total Actif = Total Passif sont marqués validés.</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "http://localhost:8010";
+let authToken = null;   // en mémoire seulement (pas de localStorage) — perdu à la fermeture de l'onglet, plus sûr
+
+function headersAuth(json){
+  const h = json ? {'Content-Type':'application/json'} : {};
+  if (authToken) h['Authorization'] = 'Bearer ' + authToken;
+  return h;
+}
+
+async function login(){
+  const user = document.getElementById('login-user').value;
+  const pass = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  try{
+    const r = await fetch(API + "/auth/login", {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:user, password:pass})});
+    if (!r.ok){ errEl.textContent = 'Identifiants incorrects.'; return; }
+    const j = await r.json();
+    authToken = j.access_token;
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('userBox').style.display = 'flex';
+    document.getElementById('userLabel').textContent = user;
+  }catch(e){
+    errEl.textContent = "Impossible de contacter l'API.";
+  }
+}
+
+function logout(){
+  authToken = null;
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('userBox').style.display = 'none';
+}
+const MOTIFS = {
+  IS: ["Erreur de calcul de la base imposable","Charge déductible rejetée à tort","Double imposition","Délai de réclamation dépassé"],
+  TVA: ["TVA déductible non prise en compte","Opération exonérée taxée à tort","Erreur sur le taux appliqué","Délai de réclamation dépassé"],
+  IR: ["Erreur sur le barème appliqué","Déduction non prise en compte (charges, frais professionnels)","Double imposition","Délai de réclamation dépassé"]
+};
+
+let dossiers = [];
+let regles = [];
+let activeId = null;
+
+async function checkApi(){
+  try{
+    const r = await fetch(API+"/health");
+    await r.json();
+    document.getElementById('apiDot').className = 'dot ok';
+    document.getElementById('apiText').textContent = "Système connecté";
+  }catch(e){
+    document.getElementById('apiDot').className = 'dot ko';
+    document.getElementById('apiText').textContent = "Système hors ligne";
+  }
+}
+
+async function loadQueue(){
+  try{
+    const r = await fetch(API+"/reclamations");
+    dossiers = await r.json();
+  }catch(e){ dossiers = []; }
+  renderQueue();
+}
+
+async function loadRules(){
+  try{
+    const r = await fetch(API+"/regles");
+    regles = await r.json();
+  }catch(e){ regles = []; }
+  renderRL();
+}
+
+function statusClass(s){return {nouvelle:'nouvelle',attente:'attente',validee:'validee',modifiee:'modifiee',rejetee:'rejetee'}[s]||'nouvelle';}
+function statusLabel(s){return {nouvelle:'Nouvelle',attente:'Traitée · en attente',validee:'Validée',modifiee:'Validée (modifiée)',rejetee:'Rejetée'}[s]||s;}
+function fmtDate(s){ if(!s) return ''; const[y,m,d]=s.split('-'); return `${d}/${m}/${y}`; }
+
+function renderQueue(){
+  const list = document.getElementById('queueList');
+  document.getElementById('queueCount').textContent = dossiers.length;
+  if (dossiers.length===0){ list.innerHTML = '<div class="loading">Aucune réclamation.</div>'; return; }
+  list.innerHTML = '';
+  dossiers.forEach(d=>{
+    const el = document.createElement('div');
+    el.className = 'dossier-card'+(d.id===activeId?' active':'');
+    el.onclick = ()=>{ activeId = d.id; renderDetail(); renderQueue(); };
+    el.innerHTML = `<div class="top-row"><span class="tax-tag ${d.tax}">${d.tax}</span><span class="ref">${d.id.slice(-8)}</span></div>
+      <h3>${d.contrib}</h3><div class="motif">${d.motif}</div>
+      <span class="status-pill ${statusClass(d.status)}">${statusLabel(d.status)}</span>`;
+    list.appendChild(el);
+  });
+}
+
+function renderDetail(){
+  const d = dossiers.find(x=>x.id===activeId);
+  const col = document.getElementById('detailCol');
+  if (!d){ col.innerHTML = '<div class="empty-state">Sélectionnez une réclamation, ou déposez-en une nouvelle.</div>'; return; }
+  const traitee = d.status !== 'nouvelle';
+
+  col.innerHTML = `
+    <div class="dossier-head">
+      <div><div class="id-line">${d.id} · IF ${d.ifn}</div><h2>${d.contrib}</h2>
+      <div class="meta">${d.tax} — ${d.motif} · Émis le ${fmtDate(d.date_mer)}</div></div>
+      <div class="seal ${traitee?'stamped':''}">TRAITÉ<br>AUTOMAT.</div>
+    </div>
+    <div class="field-grid">
+      <div class="field-box"><div class="label">Montant émis</div><div class="value">${d.montant.toLocaleString('fr-FR')} DH</div></div>
+      <div class="field-box"><div class="label">Date réclamation</div><div class="value">${fmtDate(d.date_reclam)}</div></div>
+      <div class="field-box"><div class="label">Statut</div><div class="value" style="font-size:12px;">${statusLabel(d.status)}</div></div>
+    </div>
+    ${!traitee ? `<button class="add-btn" style="width:auto; padding:9px 16px;" onclick="traiterUn('${d.id}')">▶ Traiter automatiquement (appel LLM réel)</button>` : `
+      <span class="source-tag ${d.source_texte==='groq_llm'?'groq':'repli'}">${d.source_texte==='groq_llm' ? '✓ Généré par le LLM (Groq)' : '⚠ Texte de repli (pas de clé Groq / échec appel)'}</span>
+      ${d.retrieval_score !== undefined && d.retrieval_score < 2 ? `<span class="source-tag faible">⚠ Citation CGI peu fiable — vérification manuelle recommandée</span>` : ''}
+
+      <div class="doc-actions">
+        <button onclick="imprimerDocument('rapport')">🖨 Imprimer le rapport</button>
+        <button onclick="imprimerDocument('decision')">🖨 Imprimer la décision</button>
+      </div>
+
+      ${buildDocPage('rapport', d)}
+      ${buildDocPage('decision', d)}
+
+      ${d.status==='attente' ? `
+        <div style="margin:14px 0;"><label style="font-family:var(--mono); font-size:10.5px; color:var(--ink-soft);">Modifier le texte de la décision avant validation :</label>
+        <textarea id="decisionEdit" style="margin-top:6px;">${d.decision||''}</textarea>
+        <button class="save-modif" id="saveModifBtn" onclick="saveModif('${d.id}')">Enregistrer la modification</button></div>
+        <div class="action-row">
+          <button class="accept" onclick="validerDossier('${d.id}','accept')">✓ Valider tel quel</button>
+          <button class="modify" onclick="toggleModif()">✎ Modifier le texte</button>
+          <button class="reject" onclick="validerDossier('${d.id}','reject')">✕ Rejeter</button>
+        </div>` : `<div style="font-size:11.5px; color:var(--ink-soft); font-family:var(--mono);">Dossier clos — ${statusLabel(d.status)}</div>`}
+    `}
+  `;
+}
+
+function buildDocPage(kind, d){
+  const isRapport = kind === 'rapport';
+  const title = isRapport ? "Rapport d'Instruction — Réclamation " + d.tax : "Décision — Réclamation " + d.tax;
+  const bodyText = isRapport ? (d.rapport || '') : (d.decision || '');
+  // Modèle officiel réel, selon le même mapping que Uniform_V2.html (dégrèvement vs rejet)
+  const modele = (d.montant_degreve && d.montant_degreve > 0) ? 'AJC012B-25I' : 'AJC001B-25I';
+  return `
+    <div class="doc-page" id="doc-${kind}-${d.id}">
+      <div class="doc-header-logos">
+        <img src="assets/logos/ministere.png" alt="Ministère de l'Economie et des Finances">
+        <img class="royaume" src="assets/logos/royaume.png" alt="Royaume du Maroc">
+        <img src="assets/logos/DGI.png" alt="DGI">
+      </div>
+      <div class="modele-ref">Modèle ${modele}</div>
+      <h2 class="dtitle">${title}</h2>
+      <div class="art-ref">Base légale : ${d.article} (CGI)</div>
+      <p class="sect-title">Renseignements sur le contribuable</p>
+      <ul class="infolist">
+        <li><b>Raison sociale :</b> ${d.contrib}</li>
+        <li><b>Identifiant Fiscal :</b> ${d.ifn}</li>
+        <li><b>Impôt concerné :</b> ${d.tax}</li>
+        <li><b>Référence dossier :</b> ${d.id}</li>
+        <li><b>Date de mise en recouvrement :</b> ${fmtDate(d.date_mer)}</li>
+        <li><b>Date de la réclamation :</b> ${fmtDate(d.date_reclam)}</li>
+      </ul>
+      <p class="sect-title">${isRapport ? 'Analyse et motivation' : 'Décision motivée'}</p>
+      <p class="body-text">${bodyText}</p>
+      <table class="doc-table">
+        <tr><th>Montant émis</th><th>Dégrèvement proposé</th><th>Solde exigible</th></tr>
+        <tr><td>${d.montant.toLocaleString('fr-FR')} DH</td><td>${(d.montant_degreve||0).toLocaleString('fr-FR')} DH</td><td>${(d.montant-(d.montant_degreve||0)).toLocaleString('fr-FR')} DH</td></tr>
+      </table>
+      <table class="sig-table">
+        <tr><th>Gestionnaire</th><th>Chef de Secteur</th><th>Chef de Subdivision</th></tr>
+        <tr><td></td><td></td><td></td></tr>
+      </table>
+    </div>
+  `;
+}
+
+function imprimerDocument(kind){
+  const d = dossiers.find(x=>x.id===activeId);
+  const html = buildDocPage(kind, d);
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>${kind} — ${d.id}</title>
+    <style>
+      body{margin:0; background:#fff;}
+      ${document.querySelector('style').textContent}
+    </style></head><body>${html}</body></html>`);
+  w.document.close();
+  setTimeout(()=>w.print(), 300);
+}
+
+/* ============================= DOCUMENT OFFICIEL (format DGI réel) ============================= */
+/* Reprend exactement les classes CSS (dtitle, dsub, dline, infolist, sect-title, body-text, doc-table)
+   et la structure de generateCxPreview() / cxSigBlockHtml() de Uniform_V2.html, pour que le document
+   généré soit visuellement identique aux vrais rapports produits par l'outil existant. */
+
+const SOUS_TITRE_IMPOT = {
+  IS:  "(IMPOT SUR LES SOCIETES)",
+  TVA: "(TAXE SUR LA VALEUR AJOUTEE)"
+};
+
+function genererDocumentOfficiel(id){
+  const d = dossiers.find(x=>x.id===id);
+  if (!d || d.status==='nouvelle'){ showToast('Traitez le dossier avant de générer le document.'); return; }
+
+  const solde = (d.montant - (d.montant_degreve||0)).toLocaleString('fr-FR');
+  const docHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+  <title>${d.id} — ${d.contrib}</title>
+  <style>
+    body{ font-family: "Segoe UI", Arial, sans-serif; margin:0; background:#eee; }
+    .doc-page{ max-width:800px; margin:24px auto; background:#fff; padding:40px 50px; box-shadow:0 0 8px rgba(0,0,0,.15); }
+    .doc-page h2.dtitle{ text-align:center; font-size:20px; margin:0 0 10px; background:#7C9FD9; color:#fff; padding:10px; }
+    .doc-page h3.dsub{ text-align:center; font-size:15.5px; margin:0 0 12px; font-weight:bold; color:#000; }
+    .doc-page p.dline{ text-align:center; font-size:14.5px; margin:0 0 2px; font-weight:bold; }
+    .doc-page ul.infolist{ list-style:disc; padding-left:22px; margin:16px 0; font-size:15px; }
+    .doc-page ul.infolist li{ margin-bottom:4px; }
+    .doc-page .sect-title{ font-weight:bold; font-size:15px; margin:18px 0 8px; background:#EAF1FB; color:#000; padding:7px 10px; border-left:4px solid #7C9FD9; }
+    .doc-page p.body-text{ font-size:15px; text-align:justify; margin:0 0 10px; }
+    .doc-page table.doc-table{ width:100%; border-collapse:collapse; margin:8px 0 14px; font-size:13.5px; }
+    .doc-page table.doc-table th, .doc-page table.doc-table td{ border:1px solid #000; padding:6px 8px; text-align:center; }
+    .doc-page table.doc-table th{ font-weight:bold; background:#e6e6e6; }
+    .doc-page table.doc-table td:first-child{ background:#f7f7f7; font-weight:bold; }
+    .doc-page .article-tag{ font-size:12px; color:#8B6D1F; background:#F3E9CC; display:inline-block; padding:2px 8px; border-radius:2px; margin-bottom:14px; }
+    .doc-page .llm-tag{ font-size:11px; font-family:monospace; color:#3C6E52; margin-bottom:6px; }
+    .sig-table{ width:100%; border-collapse:collapse; margin-top:30px; }
+    .sig-table td{ width:33.33%; text-align:center; border:none; padding-top:55px; font-weight:bold; }
+    .print-bar{ max-width:800px; margin:16px auto 0; text-align:right; }
+    .print-bar button{ padding:8px 16px; background:#152233; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:13px; }
+    @media print{ .print-bar{ display:none; } body{ background:#fff; } .doc-page{ box-shadow:none; margin:0; max-width:100%; } }
+  </style></head>
+  <body>
+    <div class="print-bar"><button onclick="window.print()">Imprimer / Exporter en PDF</button></div>
+    <div class="doc-page">
+      <h2 class="dtitle">Rapport d'Instruction</h2>
+      <h3 class="dsub">${SOUS_TITRE_IMPOT[d.tax] || d.tax}</h3>
+      <p class="dline">Subdivision de la Fiscalité des Personnes Morales — DRI Rabat</p>
+
+      <ul class="infolist">
+        <li><b>Référence dossier :</b> ${d.id}</li>
+        <li><b>Raison sociale :</b> ${escapeHtmlDoc(d.contrib)}</li>
+        <li><b>Identifiant Fiscal :</b> ${escapeHtmlDoc(d.ifn)}</li>
+        <li><b>Date de mise en recouvrement :</b> ${fmtDate(d.date_mer)}</li>
+        <li><b>Date de la réclamation :</b> ${fmtDate(d.date_reclam)}</li>
+      </ul>
+
+      <p class="sect-title">I. Motif de la réclamation</p>
+      <p class="body-text">${escapeHtmlDoc(d.motif)}</p>
+
+      <p class="sect-title">II. Instruction — base légale et analyse</p>
+      <span class="article-tag">${escapeHtmlDoc(d.article||'')}</span>
+      <span class="llm-tag">${d.source_texte==='groq_llm' ? '✓ Rédigé par le LLM (Groq)' : '⚠ Texte de repli — LLM non disponible'}</span>
+      <p class="body-text">${escapeHtmlDoc(d.rapport||'')}</p>
+
+      <p class="sect-title">III. Avis de l'inspecteur — proposition</p>
+      <table class="doc-table">
+        <thead><tr><th>Désignation</th><th>Montant (DH)</th></tr></thead>
+        <tbody>
+          <tr><td>Montant émis</td><td>${d.montant.toLocaleString('fr-FR')}</td></tr>
+          <tr><td>Dégrèvement proposé</td><td>${(d.montant_degreve||0).toLocaleString('fr-FR')}</td></tr>
+          <tr><td>Solde exigible</td><td>${solde}</td></tr>
+        </tbody>
+      </table>
+
+      <p class="sect-title">IV. Décision</p>
+      <p class="body-text">${escapeHtmlDoc(d.decision||'')}</p>
+      <p class="body-text" style="font-style:italic; color:#555;">Statut du dossier : ${statusLabel(d.status)}${d.status==='attente' ? ' — décision non encore validée, document à titre de projet.' : ''}</p>
+
+      <table class="sig-table">
+        <tbody><tr><td>Gestionnaire</td><td>Chef de Secteur</td><td>Chef de Subdivision</td></tr></tbody>
+      </table>
+    </div>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.open();
+  w.document.write(docHtml);
+  w.document.close();
+}
+
+function escapeHtmlDoc(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+function toggleModif(){ document.getElementById('saveModifBtn').classList.toggle('show'); }
+
+async function saveModif(id){
+  const txt = document.getElementById('decisionEdit').value;
+  await fetch(`${API}/reclamations/${id}/decision`, {method:'POST', headers:headersAuth(true),
+    body: JSON.stringify({outcome:'modify', decision_finale: txt})});
+  showToast('Décision modifiée et validée — apprentissage mis à jour.');
+  await loadQueue(); await loadRules(); renderDetail();
+  if (document.getElementById('panel-stats').style.display !== 'none') loadStats();
+}
+
+async function validerDossier(id, outcome){
+  await fetch(`${API}/reclamations/${id}/decision`, {method:'POST', headers:headersAuth(true),
+    body: JSON.stringify({outcome})});
+  showToast(outcome==='accept' ? 'Dossier validé — confiance de la règle renforcée.' : 'Dossier rejeté — confiance de la règle atténuée.');
+  await loadQueue(); await loadRules(); renderDetail();
+  if (document.getElementById('panel-stats').style.display !== 'none') loadStats();
+}
+
+async function traiterUn(id){
+  showToast('Appel au LLM en cours…');
+  const r = await fetch(`${API}/reclamations/${id}/traiter`, {method:'POST', headers:headersAuth(false)});
+  if (!r.ok){ showToast('Erreur lors du traitement.'); return; }
+  await loadQueue();
+  renderDetail();
+  showToast('Dossier traité automatiquement.');
+}
+
+async function traiterTout(){
+  const nouvelles = dossiers.filter(d=>d.status==='nouvelle');
+  if (nouvelles.length===0){ showToast('Aucune nouvelle réclamation.'); return; }
+  document.getElementById('treatAll').disabled = true;
+  for (const d of nouvelles){
+    await fetch(`${API}/reclamations/${d.id}/traiter`, {method:'POST', headers:headersAuth(false)});
+  }
+  document.getElementById('treatAll').disabled = false;
+  await loadQueue();
+  if (activeId) renderDetail();
+  showToast(`${nouvelles.length} dossier(s) traité(s).`);
+}
+
+function renderRL(){
+  const el = document.getElementById('rlList');
+  if (regles.length===0){ el.innerHTML = '<div class="loading">…</div>'; return; }
+  el.innerHTML = '';
+  regles.forEach(r=>{
+    const row = document.createElement('div');
+    row.className = 'rule-row '+r.tax;
+    row.innerHTML = `<div class="rname">${r.motif}</div>
+      <div class="rmeta"><span>${r.id}</span><span>${Math.round(r.confiance*100)}%</span></div>
+      <div class="bar"><i style="width:${Math.round(r.confiance*100)}%"></i></div>`;
+    el.appendChild(row);
+  });
+}
+
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+document.getElementById('treatAll').onclick = traiterTout;
+
+async function loadStats(){
+  const el = document.getElementById('statsContent');
+  try{
+    const r = await fetch(API+"/statistiques");
+    const s = await r.json();
+
+    const tauxAcc = s.taux_acceptation_sans_modification !== null
+      ? Math.round(s.taux_acceptation_sans_modification * 100) + '%'
+      : '—';
+
+    let html = `
+      <div class="stat-big"><div class="lab">Réclamations traitées</div>
+        <div class="val">${s.traitees} / ${s.total_reclamations}</div>
+        <div class="sub2">${s.total_reclamations - s.traitees} en attente de traitement</div></div>
+
+      <div class="stat-big"><div class="lab">Validées sans modification</div>
+        <div class="val">${tauxAcc}</div>
+        <div class="sub2">indicateur de qualité du moteur</div></div>
+
+      <div class="stat-big"><div class="lab">Montant dégrevé</div>
+        <div class="val">${Math.round(s.montant_total_degreve).toLocaleString('fr-FR')} DH</div>
+        <div class="sub2">sur ${Math.round(s.montant_total_emis).toLocaleString('fr-FR')} DH émis</div></div>
+
+      <div class="stat-section">Par statut</div>`;
+
+    const labels = {nouvelle:'Nouvelles', attente:'En attente de validation', validee:'Validées', modifiee:'Modifiées', rejetee:'Rejetées'};
+    Object.entries(s.par_statut).forEach(([k,v])=>{
+      html += `<div class="stat-row"><span>${labels[k]||k}</span><span>${v}</span></div>`;
+    });
+
+    html += `<div class="stat-section">Par impôt</div>`;
+    s.par_impot.forEach(i=>{
+      html += `<div class="stat-row"><span>${i.tax}</span><span>${i.nombre} · ${Math.round(i.montant_degreve).toLocaleString('fr-FR')} DH</span></div>`;
+    });
+
+    html += `<div class="stat-section">Motifs les plus fréquents</div>`;
+    s.par_motif.slice(0,5).forEach(m=>{
+      html += `<div class="stat-row"><span style="max-width:200px;">${m.motif}</span><span>${m.nombre}</span></div>`;
+    });
+
+    html += `<div class="stat-section">Fiabilité & apprentissage</div>
+      <div class="stat-row"><span>Citations CGI peu fiables</span><span>${s.dossiers_retrieval_faible}</span></div>
+      <div class="stat-row"><span>Corrections enregistrées</span><span>${s.nombre_corrections_enregistrees}</span></div>`;
+
+    el.innerHTML = html;
+  }catch(e){
+    el.innerHTML = '<div class="loading">Statistiques indisponibles (API injoignable).</div>';
+  }
+}
+
+async function loadMarche(){
+  const el = document.getElementById('marcheContent');
+  try{
+    const r = await fetch(API+"/marche-ammc");
+    const m = await r.json();
+
+    if (!m.disponible){
+      el.innerHTML = `<div class="loading" style="text-align:left; line-height:1.6;">${m.message}</div>`;
+      return;
+    }
+
+    let html = `
+      <div class="stat-big"><div class="lab">Exercices validés</div>
+        <div class="val">${m.exercices_valides} / ${m.total_exercices}</div>
+        <div class="sub2">${m.banques.length} banques · contrôle comptable automatique</div></div>
+      <div class="stat-section">Registre par banque</div>`;
+
+    let banqueActuelle = null;
+    m.donnees.forEach(d=>{
+      if (d.bank !== banqueActuelle){
+        banqueActuelle = d.bank;
+        html += `<div class="stat-section" style="margin-top:10px; color:var(--ink);">${d.bank}</div>`;
+      }
+      const actif = d.total_actif_current !== null && d.total_actif_current !== undefined
+        ? Math.round(d.total_actif_current).toLocaleString('fr-FR') : 'N/A';
+      const badge = d.validated ? '✓' : '⚠';
+      const couleur = d.validated ? 'var(--green)' : 'var(--seal)';
+      html += `<div class="stat-row"><span>${d.year} <span style="color:${couleur};">${badge}</span></span><span>${actif}</span></div>`;
+    });
+
+    el.innerHTML = html;
+  }catch(e){
+    el.innerHTML = '<div class="loading">Données marché indisponibles (API injoignable).</div>';
+  }
+}
+
+document.querySelectorAll('.ptab').forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const cible = btn.dataset.panel;
+    document.getElementById('panel-apprentissage').style.display = cible==='apprentissage' ? 'block' : 'none';
+    document.getElementById('panel-stats').style.display = cible==='stats' ? 'block' : 'none';
+    document.getElementById('panel-marche').style.display = cible==='marche' ? 'block' : 'none';
+    if (cible==='stats') loadStats();
+    if (cible==='marche') loadMarche();
+  };
+});
+
+checkApi();
+loadQueue();
+loadRules();
+</script>
+</body>
+</html>
