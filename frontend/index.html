@@ -1,23 +1,41 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GEIF — Traitement Automatique des Réclamations</title>
-<link rel="stylesheet" href="css/style.css">
-<script>
-  // Change ceci si le backend tourne ailleurs qu'en local sur le port 8010.
-  window.GEIF_API_BASE = "http://localhost:8010";
-</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GEIF — Direction Générale des Impôts</title>
+  <link rel="stylesheet" href="assets/css/geif.css">
 </head>
 <body>
-  <div id="root"></div>
-
-  <script src="js/api.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/dashboard.js"></script>
-  <script>
-    renderAuthScreen("login");
-  </script>
+  <div class="landing">
+    <header class="topbar"><div class="topbar-inner">
+      <a class="brand" href="index.html"><div class="brand-mark">G</div>
+        <div class="brand-text"><strong>GEIF</strong><span>Direction Générale des Impôts</span></div></a>
+    </div></header>
+    <main>
+      <div style="width:min(920px,100%)">
+        <h1 style="font-size:32px;margin-bottom:8px">Gestion électronique intelligente des flux fiscaux</h1>
+        <p class="muted" style="font-size:16px;margin-bottom:28px">Choisissez votre espace.</p>
+        <div class="landing-grid">
+          <a class="card portal-card" href="sit.html">
+            <div class="big-ico" style="background:var(--green-bg);color:var(--green)">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <h2>Portail contribuable</h2>
+            <p>Déposer une réclamation, suivre son avancement avec votre référence et votre code, poser une question à l'assistant fiscal.</p>
+            <span class="go">Accéder au portail →</span>
+          </a>
+          <a class="card portal-card" href="app/connexion.html">
+            <div class="big-ico" style="background:var(--navy-100);color:var(--navy-700)">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <h2>Espace agents</h2>
+            <p>Gestionnaires, Chefs de Service et Chefs de Subdivision : traiter, valider et consulter les réclamations.</p>
+            <span class="go">Se connecter →</span>
+          </a>
+        </div>
+      </div>
+    </main>
+  </div>
 </body>
 </html>

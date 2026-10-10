@@ -19,6 +19,18 @@ function isAuthenticated() {
   return !!authToken;
 }
 
+// Le serveur renvoie soit un texte, soit une liste d'erreurs de validation : on la rend lisible.
+function detailEnTexte(detail, repli) {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((e) => {
+      const champ = Array.isArray(e.loc) ? e.loc.filter((x) => x !== "body" && x !== "query").join(".") : "";
+      return (champ ? champ + " : " : "") + String(e.msg || "valeur invalide").replace(/^Value error, /, "");
+    }).join(" · ");
+  }
+  return repli;
+}
+
 async function apiFetch(path, { method = "GET", body, auth = false } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (auth) {
@@ -34,7 +46,7 @@ async function apiFetch(path, { method = "GET", body, auth = false } = {}) {
     let detail = resp.statusText;
     try {
       const data = await resp.json();
-      detail = data.detail || detail;
+      detail = detailEnTexte(data.detail, detail);
     } catch (_) {}
     throw new Error(detail);
   }
@@ -51,7 +63,7 @@ async function apiFetchMultipart(path, formData, { auth = false } = {}) {
   const resp = await fetch(`${API_BASE}${path}`, { method: "POST", headers, body: formData });
   if (!resp.ok) {
     let detail = resp.statusText;
-    try { const data = await resp.json(); detail = data.detail || detail; } catch (_) {}
+    try { const data = await resp.json(); detail = detailEnTexte(data.detail, detail); } catch (_) {}
     throw new Error(detail);
   }
   return resp.json();

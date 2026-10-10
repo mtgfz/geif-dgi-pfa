@@ -53,6 +53,15 @@ def _get(rec_id: str) -> dict:
     return d
 
 
+def _nouvelle_reference() -> str:
+    """Référence publique courte et saisissable (ex : REC-2026-483920), unique."""
+    annee = datetime.now().year
+    while True:
+        rid = f"REC-{annee}-{secrets.randbelow(900000) + 100000}"
+        if not col_reclamations.find_one({"_id": rid}, {"_id": 1}):
+            return rid
+
+
 def _generer_cle_verification() -> str:
     """Code court, tapable à la main (ex : 7F3K-9QRT), partagé uniquement avec le contribuable."""
     brut = secrets.token_hex(4).upper()
@@ -134,7 +143,7 @@ def creer_reclamation(r: NouvelleReclamation):
     if date.fromisoformat(r.date_reclam) < date.fromisoformat(r.date_mer):
         raise HTTPException(422, "La date de réclamation ne peut pas précéder la date de mise en recouvrement.")
 
-    rid = "REC-" + datetime.now().strftime("%Y%m%d%H%M%S%f")
+    rid = _nouvelle_reference()
     maintenant = datetime.now().isoformat()
     doc = {
         "_id": rid, "id": rid,

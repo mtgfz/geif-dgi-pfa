@@ -29,6 +29,12 @@ def test_depot_validation(client):
     assert client.post("/reclamations", json=base).status_code == 200
 
 
+def test_reference_courte_et_unique(client, depot):
+    import re
+    refs = {depot()[0] for _ in range(5)}
+    assert len(refs) == 5 and all(re.fullmatch(r"REC-\d{4}-\d{6}", r) for r in refs)
+
+
 def test_signup_codes(client):
     r = client.post("/auth/signup", json={"username": "boss", "password": "motdepasse1", "role": "chef_service", "registration_code": "faux"})
     assert r.status_code == 403

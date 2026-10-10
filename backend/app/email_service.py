@@ -10,6 +10,27 @@ from email.mime.text import MIMEText
 from .config import settings
 
 
+def _mot_de_passe() -> str:
+    """Gmail affiche les « mots de passe d'application » par groupes de 4 séparés par des espaces :
+    on les retire (ils ne font pas partie du mot de passe)."""
+    pwd = settings.SMTP_PASSWORD
+    return pwd.replace(" ", "") if settings.SMTP_HOST.endswith("gmail.com") else pwd
+
+
+def _ouvrir_smtp():
+    """Port 465 = SSL dès la connexion (SMTP_SSL). Sinon (587…) connexion simple puis STARTTLS.
+    Utiliser le mauvais mode donne l'erreur « Connection unexpectedly closed »."""
+    if int(settings.SMTP_PORT) == 465:
+        return smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15)
+    serveur = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15)
+    try:
+        serveur.starttls()
+    except Exception:
+        serveur.close()
+        raise
+    return serveur
+
+
 def envoyer_email_confirmation_depot(destinataire: str, contribuable: str, rec_id: str, cle_verification: str) -> bool:
     """Envoyé immédiatement au dépôt de la réclamation (étape 1) — donne au
     contribuable sa référence et sa clé de vérification par e-mail tout de
@@ -48,9 +69,8 @@ Direction Générale des Impôts — Système GEIF
     msg.attach(MIMEText(corps, "plain", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as serveur:
-            serveur.starttls()
-            serveur.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+        with _ouvrir_smtp() as serveur:
+            serveur.login(settings.SMTP_USER, _mot_de_passe())
             serveur.sendmail(settings.SMTP_FROM, [destinataire], msg.as_string())
         return True
     except Exception as e:
@@ -94,9 +114,8 @@ Direction Générale des Impôts — Système GEIF
     msg.attach(MIMEText(corps, "plain", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as serveur:
-            serveur.starttls()
-            serveur.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+        with _ouvrir_smtp() as serveur:
+            serveur.login(settings.SMTP_USER, _mot_de_passe())
             serveur.sendmail(settings.SMTP_FROM, [destinataire], msg.as_string())
         return True
     except Exception as e:

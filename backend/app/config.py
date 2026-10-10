@@ -36,7 +36,7 @@ class Settings:
     ALLOWED_ORIGINS = [
         o.strip() for o in os.environ.get(
             "ALLOWED_ORIGINS",
-            "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000",
+            "http://localhost:8080,http://127.0.0.1:8080,http://localhost:8090,http://127.0.0.1:8090,http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000",
         ).split(",") if o.strip()
     ]
 

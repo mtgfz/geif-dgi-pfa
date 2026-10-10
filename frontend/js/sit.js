@@ -1,3 +1,5 @@
+const PORTAIL_VERSION = "3 (code de suivi envoyé avec les documents)";
+console.info("Portail GEIF v" + PORTAIL_VERSION);
 // Portail SIT — espace contribuable. Aucune authentification classique :
 // la référence + la clé de vérification (envoyée par e-mail) tiennent lieu
 // de secret partagé pour consulter la décision finale et discuter.
@@ -9,13 +11,14 @@ const SIT_MOTIFS = {
 };
 
 const SIT_STATUS_LABEL = {
-  nouvelle: "Reçue — en attente de traitement",
-  attente: "Traitée — en attente de validation interne",
-  attente_chef_secteur: "En cours de validation (chef de secteur)",
-  attente_chef_subdivision: "En cours de validation (chef de subdivision)",
-  validee_finale: "Décision finale rendue",
-  rejetee: "Réclamation rejetée",
+  nouvelle: "Réclamation déposée",
+  en_traitement: "En cours d'instruction",
+  envoyee_chef_service: "En cours de validation",
+  envoyee_chef_subdivision: "En cours de validation finale",
+  decision_envoyee: "Décision notifiée",
+  retournee: "Complément d'instruction en cours",
 };
+const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const DOC_TYPES_AUTORISES = ["application/pdf", "image/png", "image/jpeg"];
 const DOC_MAX_OPTIONNELS = 5;
@@ -255,6 +258,7 @@ async function submitStep2() {
   const validOptional = sitOptionalDocs.filter((d) => d.file);
 
   const formData = new FormData();
+  formData.append("cle", sitCleVerification);
   formData.append("demande_degrevement", requiredFile);
   formData.append("description_demande", requiredDesc);
   validOptional.forEach((d) => formData.append("documents_optionnels", d.file));
@@ -295,9 +299,9 @@ function renderSuiviForm() {
   const content = document.getElementById("sit-content");
   content.innerHTML = `
     <label>Référence de la réclamation</label>
-    <input id="s-ref" type="text" placeholder="REC-20260917..." />
-    <label>Clé de vérification (reçue par e-mail, requise pour voir la décision)</label>
-    <input id="s-cle" type="text" placeholder="XXXX-XXXX" />
+    <input id="s-ref" type="text" placeholder="REC-2026-123456" autocomplete="off" />
+    <label>Code de suivi (reçu à la fin du dépôt, et par e-mail)</label>
+    <input id="s-cle" type="text" placeholder="XXXX-XXXX" autocomplete="off" />
     <button class="sit-submit" id="s-submit">Consulter le statut</button>
     <div class="auth-error" id="s-error"></div>
     <div class="sit-suivi-result" id="s-result"></div>
@@ -309,34 +313,39 @@ async function submitSuivi() {
   const errBox = document.getElementById("s-error");
   const resBox = document.getElementById("s-result");
   errBox.textContent = ""; resBox.innerHTML = "";
-  const ref = document.getElementById("s-ref").value.trim();
+  const ref = document.getElementById("s-ref").value.trim().toUpperCase();
   const cle = document.getElementById("s-cle").value.trim();
-  if (!ref) { errBox.textContent = "Merci de saisir votre référence."; return; }
+  if (!ref || !cle) { errBox.textContent = "Merci de saisir votre référence ET votre code de suivi."; return; }
   try {
-    const d = await Api.suivreReclamation(ref, undefined, cle || undefined);
+    const d = await Api.suivreReclamation(ref, undefined, cle);
     sitReclamationId = ref;
-    sitCleVerification = cle || null;
+    sitCleVerification = cle;
+
+    const etapes = (d.etapes || []).map((e) => {
+      const marque = e.etat === "fait" ? "✔" : e.etat === "en_cours" ? "●" : "○";
+      const style = e.etat === "a_venir" ? "color:#8a97ad;" : e.etat === "en_cours" ? "font-weight:700;" : "";
+      const date = e.date ? ` <span class="sub">— ${new Date(e.date).toLocaleDateString("fr-FR")}</span>` : "";
+      return `<li style="${style}margin:4px 0;">${marque} ${esc(e.libelle)}${date}</li>`;
+    }).join("");
 
     let html = `
-      <div class="field-box" style="margin-bottom:10px;"><div class="label">Statut</div><div class="value" style="font-size:13px;">${SIT_STATUS_LABEL[d.status] || d.status}</div></div>
-      <div class="field-box" style="margin-bottom:10px;"><div class="label">Contribuable</div><div class="value" style="font-size:13px;">${d.contrib} — ${d.tax}</div></div>`;
+      <div class="field-box" style="margin-bottom:10px;"><div class="label">Statut</div><div class="value" style="font-size:13px;">${esc(d.status_label || SIT_STATUS_LABEL[d.status] || d.status)}</div></div>
+      <div class="field-box" style="margin-bottom:10px;"><div class="label">Contribuable</div><div class="value" style="font-size:13px;">${esc(d.contrib)} — ${esc(d.tax)}</div></div>
+      <div class="field-box" style="margin-bottom:10px;"><div class="label">Avancement</div><ul style="list-style:none;padding:0;margin:6px 0 0;font-size:13px;">${etapes}</ul></div>`;
 
-    if (d.decision_disponible_mais_cle_requise) {
-      html += `<p class="sub">La décision finale est disponible — saisissez votre clé de vérification (reçue par e-mail) pour l'afficher.</p>`;
+    if (d.decision_disponible && d.montant_degreve != null) {
+      html += `<div class="field-box" style="margin-bottom:10px;"><div class="label">Dégrèvement accordé</div><div class="value" style="font-size:13px;">${Number(d.montant_degreve).toLocaleString("fr-FR")} DH</div></div>`;
     }
-    if (d.montant_degreve != null) {
-      html += `<div class="field-box" style="margin-bottom:10px;"><div class="label">Dégrèvement</div><div class="value" style="font-size:13px;">${d.montant_degreve.toLocaleString("fr-FR")} DH</div></div>`;
-    }
-    if (d.decision) {
-      html += `<div class="doc-block"><div class="doc-title">Décision</div><div class="doc-body">${d.decision}</div></div>`;
+    if (d.decision_disponible && d.decision) {
+      html += `<div class="doc-block"><div class="doc-title">Décision${d.type_decision ? " — " + esc(d.type_decision) : ""}</div><div class="doc-body" style="white-space:pre-wrap;">${esc(d.decision)}</div></div>`;
       Api.marquerLu(ref, cle).catch(() => {});
       html += `<div id="chatSection"></div>`;
     }
     resBox.innerHTML = html;
 
-    if (d.decision) renderChatSit(ref, cle, d.gestionnaire_choisi);
+    if (d.decision_disponible && d.decision) renderChatSit(ref, cle, d.gestionnaire_choisi);
   } catch (e) {
-    errBox.textContent = "Aucune réclamation ne correspond à cette référence.";
+    errBox.textContent = e.message || "Impossible de consulter cette réclamation.";
   }
 }
 

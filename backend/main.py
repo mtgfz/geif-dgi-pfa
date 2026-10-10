@@ -2,6 +2,9 @@
 Point d'entrée de l'application.
 Lancer avec :  uvicorn main:app --port 8010 --reload
 """
+from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -31,6 +34,29 @@ app.include_router(stats.router)
 app.include_router(predictions.router)
 app.include_router(messages.router)
 app.include_router(assistant.router)
+
+
+_TRADUCTIONS = {"Field required": "champ obligatoire", "Input should be a valid number": "nombre invalide",
+                "Input should be a valid string": "texte invalide"}
+
+
+@app.exception_handler(RequestValidationError)
+async def _erreur_422(request, exc):
+    """Journalise le champ refusé dans la console de l'API ET renvoie un message lisible (texte, pas
+    un objet : un ancien client JavaScript afficherait sinon « [object Object] »)."""
+    erreurs = exc.errors()
+    details = "; ".join(f"{'.'.join(str(x) for x in e['loc'])} → {e['msg']}" for e in erreurs)
+    print(f"[422] {request.method} {request.url.path} : {details}")
+
+    if request.url.path.endswith("/documents") and any(e["loc"][-1] == "cle" and e["type"] == "missing" for e in erreurs):
+        message = ("Le code de suivi n'a pas été envoyé : votre navigateur utilise une ANCIENNE version du portail. "
+                   "Fermez cet onglet, rouvrez le portail et appuyez sur Ctrl+F5.")
+    else:
+        message = " · ".join(
+            (" : ".join(filter(None, [".".join(str(x) for x in e["loc"] if x not in ("body", "query")),
+                                      _TRADUCTIONS.get(e["msg"], e["msg"].replace("Value error, ", ""))])))
+            for e in erreurs)
+    return JSONResponse(status_code=422, content={"detail": message, "errors": jsonable_encoder(erreurs)})
 
 
 @app.on_event("startup")
