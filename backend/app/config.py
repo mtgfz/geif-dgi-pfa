@@ -32,8 +32,13 @@ class Settings:
     EMBED_MODEL_NAME: str = "paraphrase-multilingual-MiniLM-L12-v2"
     SEUIL_CONFIANCE_RETRIEVAL: int = 2
 
-    # --- CORS ---
-    ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+    # --- CORS (liste d'origines autorisées, séparées par des virgules) ---
+    ALLOWED_ORIGINS = [
+        o.strip() for o in os.environ.get(
+            "ALLOWED_ORIGINS",
+            "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000",
+        ).split(",") if o.strip()
+    ]
 
     # --- Email (SMTP réel) ---
     # Exemple avec Gmail : SMTP_HOST=smtp.gmail.com, SMTP_PORT=587,
@@ -51,16 +56,19 @@ class Settings:
         return bool(self.SMTP_HOST and self.SMTP_USER and self.SMTP_PASSWORD)
 
     # --- Rôles reconnus par le système (hiérarchie DGI) ---
-    ROLES = ("gestionnaire", "chef_secteur", "chef_subdivision")
+    ROLES = ("gestionnaire", "chef_service", "chef_subdivision")
 
     # --- Codes d'inscription par rôle (en plus du mot de passe) ---
-    # Un rôle absent de ce dict (ex: "gestionnaire") ne demande aucun code.
-    # Change ces valeurs dans .env avant la démo — ce sont celles que tu
-    # communiques toi-même à la personne qui s'inscrit sous ce rôle.
+    # AUCUNE valeur par défaut devinable : un code non défini dans .env
+    # désactive l'inscription pour ce rôle (pour les chefs). Pour le
+    # gestionnaire, le code est optionnel (inscription libre s'il est vide).
+    # CODE_CHEF_SECTEUR est encore lu pour compatibilité avec l'ancien .env.
     ROLE_REGISTRATION_CODES = {
-        "chef_secteur": os.environ.get("CODE_CHEF_SECTEUR", "SECTEUR-2026"),
-        "chef_subdivision": os.environ.get("CODE_CHEF_SUBDIVISION", "SUBDIVISION-2026"),
+        "gestionnaire": os.environ.get("CODE_GESTIONNAIRE", ""),
+        "chef_service": os.environ.get("CODE_CHEF_SERVICE") or os.environ.get("CODE_CHEF_SECTEUR", ""),
+        "chef_subdivision": os.environ.get("CODE_CHEF_SUBDIVISION", ""),
     }
+    ROLES_CODE_OBLIGATOIRE = ("chef_service", "chef_subdivision")
 
     # --- OCR (Tesseract local) ---
     # Sous Windows, Tesseract n'est généralement pas dans le PATH : indique le
@@ -68,7 +76,12 @@ class Settings:
     # https://github.com/UB-Mannheim/tesseract/wiki, souvent
     # "C:\\Program Files\\Tesseract-OCR\\tesseract.exe").
     TESSERACT_CMD: str = os.environ.get("TESSERACT_CMD", "")
-    OCR_LANGS: str = os.environ.get("OCR_LANGS", "fra+ara")  # français + arabe
+    OCR_LANGS: str = os.environ.get("OCR_LANGS", "fra+ara")  # français + arabe (repli automatique si une langue manque)
+    # Dossier local optionnel de fichiers .traineddata (utile sans droits admin).
+    TESSDATA_LOCAL: str = os.environ.get("TESSDATA_LOCAL", "") or os.path.join(os.path.dirname(__file__), "..", "tessdata")
+    # Par défaut, un PDF "numérique" (avec couche texte) est lu directement ;
+    # Tesseract n'intervient que sur les scans. Mettre 1 pour forcer l'OCR partout.
+    OCR_FORCER: bool = os.environ.get("OCR_FORCER", "0").strip().lower() in ("1", "true", "oui", "yes")
 
     # --- Documents (portail SIT) ---
     DOCUMENT_TYPES_AUTORISES = {"application/pdf", "image/png", "image/jpeg"}

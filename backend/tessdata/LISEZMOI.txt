@@ -1,0 +1,11 @@
+Dossier optionnel pour les fichiers de langue Tesseract (.traineddata).
+
+Utile si Tesseract est installe sans le francais ou l'arabe et que tu n'as pas
+les droits administrateur pour modifier son dossier "tessdata".
+
+1. Telecharge fra.traineddata et ara.traineddata :
+   https://github.com/tesseract-ocr/tessdata_fast
+2. Place-les ICI (backend/tessdata/).
+3. Redemarre l'API, puis verifie :   cd backend  &&  python -m app.ocr
+
+Ces fichiers ne sont pas envoyes sur GitHub (.gitignore).

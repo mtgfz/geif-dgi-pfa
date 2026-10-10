@@ -2,7 +2,7 @@
 Sécurité : hashage des mots de passe (bcrypt), émission/vérification de JWT,
 et dépendances FastAPI pour protéger les routes (authentification + rôles).
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
@@ -29,7 +29,7 @@ def verify_password(password: str, password_hash: bytes) -> bool:
 # ---------- JWT ----------
 
 def creer_token(username: str, role: str) -> str:
-    expiration = datetime.utcnow() + timedelta(minutes=settings.JWT_EXPIRATION_MINUTES)
+    expiration = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRATION_MINUTES)
     payload = {"sub": username, "role": role, "exp": expiration}
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGO)
 
@@ -68,7 +68,7 @@ def get_current_user_optional(credentials: HTTPAuthorizationCredentials | None =
 
 
 def require_roles(*roles: str):
-    """Dépendance paramétrable : require_roles("chef_secteur", "chef_subdivision")
+    """Dépendance paramétrable : require_roles("chef_service", "chef_subdivision")
     restreint une route aux rôles listés. Sans argument, authentifie seulement."""
     def _dep(user: dict = Depends(get_current_user)) -> dict:
         if roles and user["role"] not in roles:

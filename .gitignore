@@ -25,3 +25,6 @@ __pycache__/
 *.pyc
 .env
 .next/
+
+# OCR : fichiers de langue Tesseract locaux (a telecharger, pas dans git)
+backend/tessdata/*.traineddata

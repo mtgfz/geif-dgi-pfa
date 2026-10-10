@@ -9,7 +9,10 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import col_reclamations, col_messages
+from ..constants import DECISION_ENVOYEE
 from ..models import MessageCreate
+from ..ratelimit import limite
+from ..workflow import cles_egales
 from ..security import get_current_user, get_current_user_optional
 
 router = APIRouter(prefix="/reclamations", tags=["messages"])
@@ -19,14 +22,14 @@ def _verifier_cle(rec_id: str, cle: str | None) -> dict:
     d = col_reclamations.find_one({"_id": rec_id})
     if not d:
         raise HTTPException(404, "Réclamation introuvable.")
-    if d["status"] not in ("validee_finale", "rejetee"):
+    if d["status"] not in (DECISION_ENVOYEE,):
         raise HTTPException(409, "L'espace de discussion s'ouvre une fois la décision finale rendue.")
-    if not cle or cle != d.get("cle_verification"):
+    if not cles_egales(cle, d.get("cle_verification")):
         raise HTTPException(403, "Clé de vérification incorrecte.")
     return d
 
 
-@router.post("/{rec_id}/messages/contribuable")
+@router.post("/{rec_id}/messages/contribuable", dependencies=[Depends(limite("msg", 20, 600))])
 def envoyer_message_contribuable(rec_id: str, body: MessageCreate, cle: str):
     d = _verifier_cle(rec_id, cle)
 
@@ -47,7 +50,7 @@ def envoyer_message_interne(rec_id: str, body: MessageCreate, user: dict = Depen
     d = col_reclamations.find_one({"_id": rec_id})
     if not d:
         raise HTTPException(404, "Réclamation introuvable.")
-    if d["status"] not in ("validee_finale", "rejetee"):
+    if d["status"] not in (DECISION_ENVOYEE,):
         raise HTTPException(409, "L'espace de discussion s'ouvre une fois la décision finale rendue.")
 
     msg = {
@@ -65,7 +68,7 @@ def lire_messages(rec_id: str, cle: str | None = None, user: dict | None = Depen
     d = col_reclamations.find_one({"_id": rec_id})
     if not d:
         raise HTTPException(404, "Réclamation introuvable.")
-    autorise_contribuable = cle is not None and cle == d.get("cle_verification")
+    autorise_contribuable = cles_egales(cle, d.get("cle_verification"))
     if not autorise_contribuable and not user:
         raise HTTPException(403, "Accès refusé.")
 

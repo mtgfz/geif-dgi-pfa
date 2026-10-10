@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+python-multipart
 pymongo
 pyjwt
 bcrypt
@@ -8,3 +9,6 @@ requests
 chromadb
 sentence-transformers
 duckdb
+pytesseract
+pillow
+pymupdf

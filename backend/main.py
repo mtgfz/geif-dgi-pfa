@@ -7,13 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_indexes, ping
+from app.migration import migrer
 from app.ocr import verifier_ocr
 from app.rules_engine import init_rules
 from app.routers import auth, messages, predictions, reclamations, stats, assistant
 
 app = FastAPI(
     title="GEIF — Traitement Automatique des Réclamations (IS, IR, TVA)",
-    version="2.0.0",
+    version="2.1.0",
     description="Backend : FastAPI + MongoDB + génération par LLM (Groq) + apprentissage bayésien.",
 )
 
@@ -36,6 +37,9 @@ app.include_router(assistant.router)
 def on_startup():
     init_indexes()
     init_rules()
+    bilan = migrer()  # idempotent : anciens rôles/statuts -> nouveaux
+    if any(bilan.values()):
+        print(f"[MIGRATION] {bilan}")
 
 
 @app.get("/health")
