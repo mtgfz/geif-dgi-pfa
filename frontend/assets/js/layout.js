@@ -1,7 +1,7 @@
 // Coquille de l'application interne : barre de navigation selon le rôle, garde d'accès, badges.
 import { api, goToLogin, session } from "./api.js";
 import { HOME_PAGE, LOGIN_PAGE } from "./config.js";
-import { h, icon, ROLE_LABELS, toast } from "./ui.js";
+import { h, icon, ROLE_LABELS, showFlash, toast } from "./ui.js";
 
 const TOUS = ["gestionnaire", "chef_service", "chef_subdivision"];
 const CHEFS = ["chef_service", "chef_subdivision"];
@@ -68,6 +68,7 @@ export function mountShell({ page, title, subtitle = "", actions = [] }) {
   setHeader(title, subtitle, actions);
   document.body.replaceChildren(bar, main);
 
+  showFlash();
   if (new URLSearchParams(location.search).get("denied")) toast("Cette page n'est pas accessible avec votre rôle.", "error");
 
   async function refreshCounts() {

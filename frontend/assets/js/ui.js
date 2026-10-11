@@ -26,6 +26,9 @@ const ICONS = {
   shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
   users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   sparkles: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+  loader: '<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>',
+  send: '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+  save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
   globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
 };
 
@@ -118,6 +121,55 @@ export function toast(message, type = "info") {
   setTimeout(() => t.remove(), 4500);
 }
 
+export const flash = (message, type = "success") => sessionStorage.setItem("geif_flash", JSON.stringify({ message, type }));
+export function showFlash() {
+  try {
+    const f = JSON.parse(sessionStorage.getItem("geif_flash") || "null");
+    sessionStorage.removeItem("geif_flash");
+    if (f) toast(f.message, f.type);
+  } catch { /* rien */ }
+}
+
+// ---------------------------------------------------------------- Boîte de dialogue de confirmation
+/**
+ * confirmer({titre, message, bouton, danger, champ:{label, placeholder, min}, options:[{value,label,hint}]})
+ * Retourne une Promise : null si annulé, sinon {valeur, option}.
+ */
+export function confirmer({ titre, message, bouton = "Confirmer", danger = false, champ = null, options = null }) {
+  return new Promise((resolve) => {
+    const overlay = h("div", { class: "overlay", style: "z-index:300" });
+    let option = options ? options[0].value : null;
+    const area = champ ? h("textarea", { class: "input", rows: "4", placeholder: champ.placeholder || "", "aria-label": champ.label }) : null;
+    const err = h("div", { class: "alert error", hidden: true, role: "alert" });
+    const ok = h("button", { class: "btn " + (danger ? "btn-danger" : "btn-primary"), type: "button" }, bouton);
+    const cancel = h("button", { class: "btn", type: "button" }, "Annuler");
+    const radios = options ? h("div", { class: "radio-cards" }, options.map((o, i) => {
+      const input = h("input", { type: "radio", name: "opt", value: o.value, checked: i === 0 });
+      input.addEventListener("change", () => (option = o.value));
+      return h("label", { class: "radio-card" }, input, h("div", {}, h("strong", {}, o.label), o.hint ? h("span", {}, o.hint) : null));
+    })) : null;
+    const dialog = h("div", { class: "modal", role: "dialog", "aria-modal": "true", "aria-label": titre },
+      h("h3", {}, titre), message ? h("p", { class: "muted", style: "margin:8px 0 0" }, message) : null,
+      radios,
+      champ ? h("div", { class: "field", style: "margin-top:14px" }, h("label", {}, champ.label), area) : null,
+      err, h("div", { class: "modal-actions" }, cancel, ok));
+    const fermer = (val) => { overlay.remove(); dialog.remove(); document.removeEventListener("keydown", onKey); resolve(val); };
+    const onKey = (e) => e.key === "Escape" && fermer(null);
+    ok.addEventListener("click", () => {
+      const valeur = area ? area.value.trim() : null;
+      if (champ && (valeur || "").length < (champ.min || 1)) {
+        err.textContent = `${champ.label} : au moins ${champ.min || 1} caractères.`; err.hidden = false; area.focus(); return;
+      }
+      fermer({ valeur, option });
+    });
+    cancel.addEventListener("click", () => fermer(null));
+    overlay.addEventListener("click", () => fermer(null));
+    document.addEventListener("keydown", onKey);
+    document.body.append(overlay, dialog);
+    (area || ok).focus();
+  });
+}
+
 // ---------------------------------------------------------------- États vides / chargement
 const EMPTY_ART = '<svg class="art" viewBox="0 0 120 100" aria-hidden="true"><rect x="22" y="14" width="76" height="72" rx="10" fill="#e4ecf7"/><rect x="34" y="30" width="52" height="7" rx="3.5" fill="#fff"/><rect x="34" y="46" width="36" height="7" rx="3.5" fill="#fff"/><rect x="34" y="62" width="44" height="7" rx="3.5" fill="#fff"/><circle cx="92" cy="74" r="16" fill="#1b4478"/><path d="M85 74l5 5 9-10" stroke="#fff" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 export function emptyState(title, text) {
@@ -167,18 +219,31 @@ function fact(label, value, wide) {
   return h("div", { class: "fact" + (wide ? " wide" : "") }, h("span", {}, label), h("strong", {}, value ?? "—"));
 }
 
+export function faitsDossier(d) {
+  return h("div", { class: "facts" },
+    fact("Identifiant fiscal (IF)", d.ifn), fact("Type d'impôt", d.tax),
+    fact("Montant contesté", formatMoney(d.montant)), fact("Montant dégrevé", formatMoney(d.montant_degreve)),
+    fact("Mise en recouvrement", formatDate(d.date_mer)), fact("Date de la réclamation", formatDate(d.date_reclam)),
+    fact("E-mail", d.email || "—"), fact("Téléphone", d.telephone || "—"),
+    fact("Motif", d.motif, true));
+}
+
+export function circuitDossier(events) {
+  return h("ol", { class: "timeline" }, (events || []).map((e) => {
+    const m = STATUS_META[e.vers] || { label: e.vers };
+    return h("li", { class: e.vers === "decision_envoyee" ? "done" : e.vers === "retournee" ? "ret" : "" },
+      h("div", { class: "t-title" }, m.label),
+      h("div", { class: "t-meta" }, `${EVENT_ACTORS[e.role] || e.role}${e.role === "contribuable" || e.role === "systeme" ? "" : " · " + e.par} · ${formatDateTime(e.date)}`),
+      e.commentaire ? h("div", { class: "t-comment" }, e.commentaire) : null);
+  }));
+}
+
 function fichierSections(d, docs) {
   const out = [];
   if (d.commentaire_retour && d.status === "retournee") {
     out.push(h("div", { class: "alert error" }, icon("undo"), h("div", {}, h("strong", {}, "Dossier retourné : "), d.commentaire_retour)));
   }
-  out.push(h("section", { class: "section" }, h("h4", {}, "Réclamation"),
-    h("div", { class: "facts" },
-      fact("Identifiant fiscal (IF)", d.ifn), fact("Type d'impôt", d.tax),
-      fact("Montant contesté", formatMoney(d.montant)), fact("Montant dégrevé", formatMoney(d.montant_degreve)),
-      fact("Mise en recouvrement", formatDate(d.date_mer)), fact("Date de la réclamation", formatDate(d.date_reclam)),
-      fact("E-mail", d.email || "—"), fact("Téléphone", d.telephone || "—"),
-      fact("Motif", d.motif, true))));
+  out.push(h("section", { class: "section" }, h("h4", {}, "Réclamation"), faitsDossier(d)));
 
   out.push(h("section", { class: "section" }, h("h4", {}, `Pièces justificatives (${docs.length})`),
     docs.length
@@ -195,19 +260,11 @@ function fichierSections(d, docs) {
       d.rapport ? h("details", { class: "fold" }, h("summary", {}, "Rapport d'instruction"), h("div", { class: "prose" }, d.rapport)) : null));
   }
 
-  const events = d.historique || [];
-  out.push(h("section", { class: "section" }, h("h4", {}, "Circuit du dossier"),
-    h("ol", { class: "timeline" }, events.map((e) => {
-      const m = STATUS_META[e.vers] || { label: e.vers };
-      return h("li", { class: e.vers === "decision_envoyee" ? "done" : e.vers === "retournee" ? "ret" : "" },
-        h("div", { class: "t-title" }, m.label),
-        h("div", { class: "t-meta" }, `${EVENT_ACTORS[e.role] || e.role}${e.role === "contribuable" || e.role === "systeme" ? "" : " · " + e.par} · ${formatDateTime(e.date)}`),
-        e.commentaire ? h("div", { class: "t-comment" }, e.commentaire) : null);
-    }))));
+  out.push(h("section", { class: "section" }, h("h4", {}, "Circuit du dossier"), circuitDossier(d.historique)));
   return out;
 }
 
-const docRow = (recId) => (p) => {
+export const docRow = (recId) => (p) => {
   const lecture = p.ocr_ok
     ? h("span", { class: "badge plain tone-green" }, p.ocr_methode === "texte_pdf" ? "Texte PDF lu" : "OCR réussi")
     : h("span", { class: "badge plain tone-red", title: p.ocr_erreur || "" }, "Lecture échouée");

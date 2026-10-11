@@ -335,6 +335,7 @@ def compteurs(user: dict = Depends(get_current_user)):
 def obtenir_reclamation(rec_id: str, _user: dict = Depends(get_current_user)):
     d = sans_id_mongo(_get(rec_id))
     d["status_label"] = STATUT_LABELS.get(d["status"], d["status"])
+    d["retrieval_faible"] = bool(d.get("rule_id")) and (d.get("retrieval_score") or 0) < settings.SEUIL_CONFIANCE_RETRIEVAL
     try:
         d["delai_jours"] = jours_entre(d["date_mer"], d["date_reclam"])
     except Exception:
