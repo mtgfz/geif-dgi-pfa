@@ -211,4 +211,4 @@ def test_migration_anciennes_donnees(client):
                    "R3": "envoyee_chef_subdivision", "R4": "decision_envoyee", "R5": "retournee"}
     assert col_users.find_one({"username": "old"})["role"] == "chef_service"
     assert col_reclamations.find_one({"_id": "R4"})["closed_at"]
-    assert migrer() == {"roles": 0, "statuts": 0, "historiques": 0}  # idempotent
+    assert migrer() == {"roles": 0, "statuts": 0, "historiques": 0, "decisions": 0}  # idempotent

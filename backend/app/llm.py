@@ -3,6 +3,7 @@ Génération du rapport/décision. Utilise Groq si une clé est configurée ;
 sinon un texte de repli explicitement étiqueté "repli_sans_cle" est utilisé
 — jamais un texte présenté comme venant du LLM s'il n'en vient pas vraiment.
 """
+import re
 import requests
 
 from .config import settings
@@ -46,27 +47,74 @@ def _appeler_groq(prompt: str, max_tokens: int = 500, temperature: float = 0.4):
         return None
 
 
-def assistant_sit_repondre(question: str, historique: list[dict] | None = None) -> str:
-    """Conseiller IA du portail SIT — aide générale sur la procédure de
-    réclamation fiscale (motifs, documents à fournir, délais). Ne rend
-    aucune décision et ne remplace jamais un gestionnaire."""
+_RE_DECISION = re.compile(r"(?im)^[\s*#>_\-]*D[ÉE]CISION(?:\s+PROPOS[ÉE]E)?[\s*_]*:[\s*_]*")
+_RE_RAPPORT = re.compile(r"(?im)^[\s*#>_\-]*RAPPORT(?:\s+D['’]INSTRUCTION)?[\s*_]*:[\s*_]*")
+
+
+def separer_rapport_decision(texte: str) -> tuple[str, str]:
+    """Sépare la réponse du modèle en (rapport, décision), quelle que soit la mise en forme :
+    « DECISION: », « DÉCISION : », « **Décision :** », « ### Décision proposée : »…
+    Le marqueur doit commencer une ligne (« Décision contestée : » dans une phrase n'est pas un marqueur) et
+    c'est le DERNIER marqueur qui compte. Si aucun n'est trouvé, la décision est vide : l'appelant décide quoi faire."""
+    texte = (texte or "").strip()
+    marqueurs = list(_RE_DECISION.finditer(texte))
+    if marqueurs:
+        m = marqueurs[-1]
+        rapport, decision = texte[:m.start()], texte[m.end():]
+    else:
+        rapport, decision = texte, ""
+    rapport = _RE_RAPPORT.sub("", rapport, count=1).strip()
+    return rapport, decision.strip()
+
+
+def assistant_sit_repondre(question: str, historique: list[dict] | None = None) -> dict:
+    """Conseiller IA du portail contribuable : s'appuie sur le Code Général des Impôts (RAG) pour orienter
+    (motifs, documents à fournir, délais). Ne rend aucune décision et ne remplace jamais un gestionnaire.
+
+    Retourne {"reponse": str, "sources": [{article, page, extrait}], "genere": bool}.
+    `genere` est False quand le modèle de langage est indisponible : on renvoie alors les passages
+    du CGI les plus proches, sans les présenter comme une réponse rédigée."""
+    from .rag import rechercher_articles_cgi  # import tardif : évite de charger le RAG tant qu'il n'est pas utile
+
+    historique = historique or []
+    # Question de suivi très courte (« et pour la TVA ? ») : on y joint la question précédente pour la recherche
+    precedentes = [m.get("content", "") for m in historique if m.get("role") == "user"]
+    requete = question if len(question.split()) >= 4 or not precedentes else f"{precedentes[-1]} {question}"
+    sources = [
+        {"article": a["article"], "page": a["page"], "extrait": a["texte"][:600].replace("\n", " ").strip()}
+        for a in rechercher_articles_cgi(requete, k=3) if a["score"] >= 1
+    ]
+
     fil = ""
-    for m in (historique or [])[-4:]:
+    for m in historique[-4:]:
         fil += f"{'Contribuable' if m.get('role') == 'user' else 'Conseiller'} : {m.get('content', '')}\n"
-    prompt = f"""Tu es le conseiller virtuel du portail SIT de la Direction Générale des Impôts (Maroc).
-Tu aides les contribuables à déposer une réclamation (TVA, IS ou IR) : quel motif choisir, quels documents joindre
-(la demande de dégrèvement est obligatoire, jusqu'à 5 documents optionnels avec description),
-les délais légaux, et comment suivre leur dossier avec la clé de vérification reçue par e-mail.
-Réponds en 2-4 phrases claires, en français, ton professionnel et rassurant.
-Tu ne rends JAMAIS de décision toi-même et tu ne donnes pas d'avis juridique définitif — tu orientes seulement
-vers la bonne démarche ; pour le fond du dossier, le gestionnaire tranchera.
+    extraits = "\n".join(f"[{s['article']}, p. {s['page']}] {s['extrait']}" for s in sources) or "(aucun extrait pertinent trouvé)"
+    prompt = f"""Tu es le conseiller virtuel du portail de la Direction Générale des Impôts (Maroc).
+Tu aides les contribuables à déposer et suivre une réclamation (TVA, IS ou IR) : quel motif choisir, quels documents joindre
+(la demande de dégrèvement est obligatoire, jusqu'à 5 documents optionnels avec description), les délais, et comment suivre leur dossier
+avec la référence et le code de suivi reçus à la fin du dépôt.
+
+Appuie-toi d'abord sur les EXTRAITS DU CGI ci-dessous lorsqu'ils sont pertinents et cite l'article concerné (ex. « Art. 235 CGI »).
+Si les extraits ne permettent pas de répondre, dis-le simplement et oriente vers le gestionnaire. N'invente JAMAIS un article, un délai ou un montant.
+Réponds en 2 à 4 phrases claires, en français, ton professionnel et rassurant. Tu ne rends JAMAIS de décision et tu ne donnes pas
+d'avis juridique définitif : pour le fond du dossier, le gestionnaire tranchera.
+
+EXTRAITS DU CGI :
+{extraits}
 
 {fil}
 Question du contribuable : {question}
 Réponse du conseiller :"""
-    reponse = _appeler_groq(prompt, max_tokens=250, temperature=0.5)
-    return reponse or ("Assistant indisponible pour le moment (clé Groq non configurée ou service injoignable). "
-                        "Pour toute question, utilisez l'onglet « Suivre ma réclamation » une fois votre clé reçue par e-mail.")
+    reponse = _appeler_groq(prompt, max_tokens=300, temperature=0.4)
+    if reponse:
+        return {"reponse": reponse, "sources": sources, "genere": True}
+    if sources:
+        texte = ("L'assistant n'est pas disponible pour le moment. Voici néanmoins les passages du Code Général des Impôts "
+                 "les plus proches de votre question.")
+    else:
+        texte = ("L'assistant n'est pas disponible pour le moment. Vous pouvez déposer votre réclamation, puis la suivre "
+                 "avec votre référence et votre code de suivi ; un gestionnaire l'examinera.")
+    return {"reponse": texte, "sources": sources, "genere": False}
 
 
 def reformuler_texte(rapport: str, decision: str, instruction: str) -> dict:

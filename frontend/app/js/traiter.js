@@ -50,8 +50,8 @@ async function init({ main, setHeader }) {
       h("h2", { style: "font-size:16px" }, "Dossier"), h("span", { class: "tag" }, d.tax)), faitsDossier(d));
     const circuit = h("section", { class: "card card-pad" }, h("h2", { style: "font-size:16px;margin-bottom:14px" }, "Circuit du dossier"), circuitDossier(d.historique));
 
-    const editable = d.status === "en_traitement" && d.rapport;
-    const aTexte = !!(d.rapport && d.decision);
+    const editable = d.status === "en_traitement" && (d.rapport || d.decision);
+    const aTexte = !!(d.rapport || d.decision);  // un seul des deux suffit : le gestionnaire complète l'autre
     const gauche = h("div", { class: "stack" });
     const droite = h("div", { class: "sticky" });
 

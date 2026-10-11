@@ -43,12 +43,13 @@ async function request(method, path, { params, body, auth = true, raw = false } 
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
   }
   const headers = {};
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
+  if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (auth && session.token) headers["Authorization"] = "Bearer " + session.token;
 
   let res;
   try {
-    res = await fetch(url, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+    res = await fetch(url, { method, headers, body: body === undefined ? undefined : isForm ? body : JSON.stringify(body) });
   } catch {
     throw new ApiError(0, "Serveur injoignable. Vérifiez que l'API GEIF est démarrée.");
   }
@@ -67,7 +68,8 @@ async function request(method, path, { params, body, auth = true, raw = false } 
 }
 
 export const api = {
-  get: (path, params) => request("GET", path, { params }),
+  get: (path, params, opts) => request("GET", path, { params, ...opts }),
+  upload: (path, formData) => request("POST", path, { body: formData, auth: false }),
   post: (path, body, opts) => request("POST", path, { body, ...opts }),
   patch: (path, body) => request("PATCH", path, { body }),
   blob: async (path) => (await request("GET", path, { raw: true })).blob(),

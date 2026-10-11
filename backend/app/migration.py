@@ -7,11 +7,12 @@ Relancer cette fonction ne change rien une fois les données migrées.
 """
 from .constants import MIGRATION_ROLES, MIGRATION_STATUTS
 from .database import col_reclamations, col_users
+from .llm import separer_rapport_decision
 from .workflow import evenement
 
 
 def migrer() -> dict:
-    bilan = {"roles": 0, "statuts": 0, "historiques": 0}
+    bilan = {"roles": 0, "statuts": 0, "historiques": 0, "decisions": 0}
 
     for ancien, nouveau in MIGRATION_ROLES.items():
         bilan["roles"] += col_users.update_many({"role": ancien}, {"$set": {"role": nouveau}}).modified_count
@@ -27,4 +28,12 @@ def migrer() -> dict:
             update["closed_at"] = d.get("created_at")
         col_reclamations.update_one({"_id": d["_id"]}, {"$set": update})
         bilan["historiques"] += 1
+
+    # Dossiers traités avant la correction du format de réponse du modèle : tout le texte était dans « rapport »
+    for d in col_reclamations.find({"rapport": {"$nin": [None, ""]}, "$or": [{"decision": None}, {"decision": ""}]}):
+        rapport, decision = separer_rapport_decision(d["rapport"])
+        if decision and rapport:
+            col_reclamations.update_one({"_id": d["_id"]}, {"$set": {
+                "rapport": rapport, "decision": decision, "rapport_original": rapport, "decision_original": decision}})
+            bilan["decisions"] += 1
     return bilan

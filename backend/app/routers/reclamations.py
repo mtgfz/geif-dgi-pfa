@@ -27,16 +27,16 @@ from ..config import settings
 from ..constants import (
     ACCUEIL_PAR_ROLE, CHEF_SERVICE, CHEF_SUBDIVISION, DECISION_ENVOYEE, EN_TRAITEMENT, ENVOYEE_CS,
     ENVOYEE_CSUB, GESTIONNAIRE, NOUVELLE, RETOURNEE, STATUT_EDITABLE_PAR_ROLE, STATUT_LABELS,
-    STATUT_LABELS_PUBLIC, STATUTS, TYPES_DECISION,
+    STATUT_LABELS_PUBLIC, STATUTS, TAX_TYPES, TYPES_DECISION,
 )
 from ..database import col_corrections, col_documents, col_reclamations, col_rules, sans_id_mongo
 from ..email_service import envoyer_email_confirmation_depot, envoyer_email_decision
-from ..llm import generer_texte_llm, reformuler_texte, texte_repli
+from ..llm import generer_texte_llm, reformuler_texte, separer_rapport_decision, texte_repli
 from ..models import DecisionGestionnaire, NouvelleReclamation, ReformulationRequest, ValidationChef
 from ..ocr import extraire_document
 from ..ratelimit import limite
 from ..rag import rechercher_articles_cgi
-from ..rules_engine import appliquer_feedback, choisir_regle_id, jours_entre
+from ..rules_engine import RULES, appliquer_feedback, choisir_regle_id, jours_entre
 from ..security import get_current_user, require_roles
 from ..workflow import changer_statut, cles_egales, evenement, timeline_publique
 
@@ -149,7 +149,7 @@ def creer_reclamation(r: NouvelleReclamation):
         "_id": rid, "id": rid,
         "contrib": r.contrib.strip(), "ifn": r.ifn.strip(), "tax": r.tax, "motif": r.motif.strip(),
         "montant": r.montant, "date_mer": r.date_mer, "date_reclam": r.date_reclam,
-        "email": r.email, "telephone": r.telephone,
+        "email": r.email, "telephone": r.telephone, "periode": (r.periode or "").strip() or None,
         "cle_verification": _generer_cle_verification(),
         "status": NOUVELLE, "rule_id": None, "article": None, "montant_degreve": None, "type_decision": None,
         "rapport": None, "decision": None, "source_texte": None, "articles_rag": None,
@@ -331,6 +331,17 @@ def compteurs(user: dict = Depends(get_current_user)):
     }
 
 
+@router.get("/motifs")
+def motifs_par_impot():
+    """Public : motifs de réclamation proposés par le portail, par type d'impôt. Source unique = les règles
+    de traitement (le moteur choisit la règle par correspondance exacte du motif)."""
+    out = {t: [] for t in TAX_TYPES}
+    for r in RULES.values():
+        if r["tax"] in out and r["motif"] not in out[r["tax"]]:
+            out[r["tax"]].append(r["motif"])
+    return out
+
+
 @router.get("/{rec_id}")
 def obtenir_reclamation(rec_id: str, _user: dict = Depends(get_current_user)):
     d = sans_id_mongo(_get(rec_id))
@@ -416,11 +427,13 @@ def traiter_reclamation(
     llm_text, source = generer_texte_llm(d, regle, rid, montant_degreve, rejet, delai, texte_pieces)
     if llm_text is None:
         llm_text = texte_repli(d, regle, montant_degreve, rejet, delai)
-    if "DECISION:" in llm_text:
-        rapport, decision = llm_text.split("DECISION:", 1)
-        rapport, decision = rapport.replace("RAPPORT:", "").strip(), decision.strip()
-    else:
-        rapport, decision = llm_text, ""
+    rapport, decision = separer_rapport_decision(llm_text)
+    if not rapport or not decision:
+        # Format de réponse non reconnu : on complète avec la proposition fondée sur les règles,
+        # pour que le gestionnaire ait toujours un rapport ET une décision à relire.
+        rapport_repli, decision_repli = separer_rapport_decision(texte_repli(d, regle, montant_degreve, rejet, delai))
+        rapport, decision = rapport or rapport_repli, decision or decision_repli
+        source = source + "_decision_repli" if source == "groq_llm" else source
 
     extra = {
         "rule_id": rid, "article": regle["article"], "montant_degreve": montant_degreve,

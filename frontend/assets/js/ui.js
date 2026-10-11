@@ -225,6 +225,7 @@ export function faitsDossier(d) {
     fact("Montant contesté", formatMoney(d.montant)), fact("Montant dégrevé", formatMoney(d.montant_degreve)),
     fact("Mise en recouvrement", formatDate(d.date_mer)), fact("Date de la réclamation", formatDate(d.date_reclam)),
     fact("E-mail", d.email || "—"), fact("Téléphone", d.telephone || "—"),
+    fact("Période concernée", d.periode || "—"),
     fact("Motif", d.motif, true));
 }
 

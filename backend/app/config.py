@@ -31,6 +31,7 @@ class Settings:
     )
     EMBED_MODEL_NAME: str = "paraphrase-multilingual-MiniLM-L12-v2"
     SEUIL_CONFIANCE_RETRIEVAL: int = 2
+    RAG_PRECHAUFFER: bool = os.environ.get("RAG_PRECHAUFFER", "1").strip().lower() not in ("0", "false", "non", "no")
 
     # --- CORS (liste d'origines autorisées, séparées par des virgules) ---
     ALLOWED_ORIGINS = [

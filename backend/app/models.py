@@ -45,6 +45,7 @@ class NouvelleReclamation(BaseModel):
     date_reclam: str   # ISO — date de la réclamation
     email: str | None = None      # requis pour recevoir la décision finale par e-mail
     telephone: str | None = Field(default=None, max_length=30)
+    periode: str | None = Field(default=None, max_length=60)  # exercice / période concernée (ex : 2023, T1 2024)
 
     @field_validator("tax")
     @classmethod

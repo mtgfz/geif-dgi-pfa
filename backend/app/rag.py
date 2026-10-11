@@ -78,3 +78,15 @@ def rechercher_articles_cgi(requete: str, k: int = 4):
         if len(retenus) >= k:
             break
     return retenus
+
+
+def prechauffer() -> bool:
+    """Charge le modèle d'embedding et la base du CGI en arrière-plan au démarrage de l'API,
+    pour que la première question (assistant ou traitement) ne subisse pas ce délai."""
+    try:
+        _get_rag()
+        print("[RAG] Base du CGI et modèle de recherche prêts.")
+        return True
+    except Exception as e:  # noqa: BLE001
+        print(f"[RAG] Préchauffage impossible ({e}) — le RAG sera réessayé à la première utilisation.")
+        return False

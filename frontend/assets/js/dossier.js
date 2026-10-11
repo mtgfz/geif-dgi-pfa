@@ -99,6 +99,7 @@ export function sectionArticles(d) {
 
 export const SOURCES = {
   groq_llm: ["Rédigé par le modèle de langage (Groq)", "green"],
+  groq_llm_decision_repli: ["Rapport rédigé par le modèle · décision issue des règles (format de réponse non reconnu)", "amber"],
   repli_sans_cle: ["Texte de repli : clé Groq non configurée", "amber"],
 };
 export function badgeSource(src) {

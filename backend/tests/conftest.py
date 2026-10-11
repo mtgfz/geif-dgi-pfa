@@ -9,6 +9,7 @@ import pytest
 
 os.environ.setdefault("JWT_SECRET", "test-secret-key-0123456789abcdef")
 os.environ["GROQ_API_KEY"] = ""
+os.environ["RAG_PRECHAUFFER"] = "0"
 os.environ["SMTP_HOST"] = ""
 os.environ["CODE_CHEF_SERVICE"] = "CS-TEST"
 os.environ["CODE_CHEF_SUBDIVISION"] = "CSUB-TEST"

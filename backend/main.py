@@ -2,6 +2,8 @@
 Point d'entrée de l'application.
 Lancer avec :  uvicorn main:app --port 8010 --reload
 """
+import threading
+
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
@@ -11,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_indexes, ping
 from app.migration import migrer
+from app.rag import prechauffer
 from app.ocr import verifier_ocr
 from app.rules_engine import init_rules
 from app.routers import auth, messages, predictions, reclamations, stats, assistant
@@ -63,6 +66,8 @@ async def _erreur_422(request, exc):
 def on_startup():
     init_indexes()
     init_rules()
+    if settings.RAG_PRECHAUFFER:
+        threading.Thread(target=prechauffer, daemon=True).start()  # sans bloquer le démarrage
     bilan = migrer()  # idempotent : anciens rôles/statuts -> nouveaux
     if any(bilan.values()):
         print(f"[MIGRATION] {bilan}")
