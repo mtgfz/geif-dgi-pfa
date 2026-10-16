@@ -19,7 +19,6 @@ const ACTION = {
 };
 
 const shell = mountShell({ page: "accueil", title: "Accueil", subtitle: "" });
-if (shell) init(shell);
 
 function init({ user, main, setHeader, refreshCounts }) {
   setHeader("Accueil", SUBTITLES[user.role], [
@@ -122,3 +121,6 @@ function init({ user, main, setHeader, refreshCounts }) {
   load();
   setInterval(() => { if (!document.hidden && !document.querySelector(".drawer")) load(); }, POLL_MS);
 }
+
+// Appel en toute fin de fichier : toutes les constantes ci-dessus doivent exister avant init()
+if (shell) init(shell);

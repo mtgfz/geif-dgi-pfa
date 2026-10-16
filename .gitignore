@@ -28,3 +28,6 @@ __pycache__/
 
 # OCR : fichiers de langue Tesseract locaux (a telecharger, pas dans git)
 backend/tessdata/*.traineddata
+
+# caches locaux
+backend/.cache/

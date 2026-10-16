@@ -16,7 +16,7 @@ from app.migration import migrer
 from app.rag import prechauffer
 from app.ocr import verifier_ocr
 from app.rules_engine import init_rules
-from app.routers import auth, messages, predictions, reclamations, stats, assistant
+from app.routers import auth, messages, predictions, reclamations, stats, assistant, connaissances, marche
 
 app = FastAPI(
     title="GEIF — Traitement Automatique des Réclamations (IS, IR, TVA)",
@@ -37,6 +37,8 @@ app.include_router(stats.router)
 app.include_router(predictions.router)
 app.include_router(messages.router)
 app.include_router(assistant.router)
+app.include_router(connaissances.router)
+app.include_router(marche.router)
 
 
 _TRADUCTIONS = {"Field required": "champ obligatoire", "Input should be a valid number": "nombre invalide",

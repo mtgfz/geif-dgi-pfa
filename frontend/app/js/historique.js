@@ -7,7 +7,6 @@ import {
 
 const PAGE = 15;
 const shell = mountShell({ page: "historique", title: "Historique", subtitle: "Réclamations traitées, décision envoyée au contribuable. Elles ne réapparaissent plus sur l'Accueil." });
-if (shell) init(shell);
 
 function init({ main }) {
   let page = 0;
@@ -79,3 +78,6 @@ function init({ main }) {
   [tax, dec, from, to].forEach((el) => el.addEventListener("change", refilter));
   load();
 }
+
+// Appel en toute fin de fichier : toutes les constantes ci-dessus doivent exister avant init()
+if (shell) init(shell);

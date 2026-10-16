@@ -31,6 +31,12 @@ class Settings:
     )
     EMBED_MODEL_NAME: str = "paraphrase-multilingual-MiniLM-L12-v2"
     SEUIL_CONFIANCE_RETRIEVAL: int = 2
+    SEUIL_ATTENTE_JOURS: int = int(os.environ.get("SEUIL_ATTENTE_JOURS", "14"))      # anomalie : dossier en attente trop longtemps
+    SEUIL_MONTANT_ZSCORE: float = float(os.environ.get("SEUIL_MONTANT_ZSCORE", "2.0"))  # anomalie : montant atypique pour l'impôt
+    DELAI_RECLAMATION_JOURS: int = 180                                                # au-delà : « délai de réclamation dépassé »
+    ROOT_DIR: str = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    MARCHE_DIR: str = os.environ.get("MARCHE_DIR", "") or os.path.join(os.path.dirname(__file__), "..", "..", "market_data", "scraper")
+    CACHE_DIR: str = os.environ.get("GEIF_CACHE_DIR", "") or os.path.join(os.path.dirname(__file__), "..", ".cache")
     RAG_PRECHAUFFER: bool = os.environ.get("RAG_PRECHAUFFER", "1").strip().lower() not in ("0", "false", "non", "no")
 
     # --- CORS (liste d'origines autorisées, séparées par des virgules) ---
@@ -54,7 +60,8 @@ class Settings:
     SMTP_FROM_NAME: str = os.environ.get("SMTP_FROM_NAME", "DGI — GEIF (Espace Contribuable)")
 
     def email_configure(self) -> bool:
-        return bool(self.SMTP_HOST and self.SMTP_USER and self.SMTP_PASSWORD)
+        # Un serveur de test local (ex : Mailpit) n'exige ni identifiant ni mot de passe.
+        return bool(self.SMTP_HOST and (not self.SMTP_USER or self.SMTP_PASSWORD))
 
     # --- Rôles reconnus par le système (hiérarchie DGI) ---
     ROLES = ("gestionnaire", "chef_service", "chef_subdivision")

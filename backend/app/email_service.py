@@ -18,17 +18,26 @@ def _mot_de_passe() -> str:
 
 
 def _ouvrir_smtp():
-    """Port 465 = SSL dès la connexion (SMTP_SSL). Sinon (587…) connexion simple puis STARTTLS.
-    Utiliser le mauvais mode donne l'erreur « Connection unexpectedly closed »."""
+    """Port 465 = SSL dès la connexion (SMTP_SSL). Sinon connexion simple, puis STARTTLS SI le serveur le propose
+    (un serveur de test local comme Mailpit ne le propose pas). Utiliser le mauvais mode donne l'erreur
+    « Connection unexpectedly closed »."""
     if int(settings.SMTP_PORT) == 465:
         return smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15)
     serveur = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15)
     try:
-        serveur.starttls()
+        serveur.ehlo()
+        if serveur.has_extn("starttls"):
+            serveur.starttls()
+            serveur.ehlo()
     except Exception:
         serveur.close()
         raise
     return serveur
+
+
+def _authentifier(serveur) -> None:
+    if settings.SMTP_USER:
+        serveur.login(settings.SMTP_USER, _mot_de_passe())
 
 
 def envoyer_email_confirmation_depot(destinataire: str, contribuable: str, rec_id: str, cle_verification: str) -> bool:
@@ -70,7 +79,7 @@ Direction Générale des Impôts — Système GEIF
 
     try:
         with _ouvrir_smtp() as serveur:
-            serveur.login(settings.SMTP_USER, _mot_de_passe())
+            _authentifier(serveur)
             serveur.sendmail(settings.SMTP_FROM, [destinataire], msg.as_string())
         return True
     except Exception as e:
@@ -115,7 +124,7 @@ Direction Générale des Impôts — Système GEIF
 
     try:
         with _ouvrir_smtp() as serveur:
-            serveur.login(settings.SMTP_USER, _mot_de_passe())
+            _authentifier(serveur)
             serveur.sendmail(settings.SMTP_FROM, [destinataire], msg.as_string())
         return True
     except Exception as e:

@@ -1,7 +1,7 @@
 // Validation : le Chef de Service / Chef de Subdivision lit les pièces, le rapport et la décision, puis valide
 // ou retourne le dossier au gestionnaire avec un commentaire obligatoire.
 import { api } from "../../assets/js/api.js";
-import { badgeSource, chargerDossier, sectionArticles, sectionPieces, titreEtape } from "../../assets/js/dossier.js";
+import { badgeSource, carteAmmc, chargerDossier, sectionArticles, sectionPieces, titreEtape } from "../../assets/js/dossier.js";
 import { mountShell } from "../../assets/js/layout.js";
 import {
   circuitDossier, confirmer, decisionBadge, faitsDossier, flash, formatDateTime, formatMoney, formatRef, h, icon, statusBadge, toast,
@@ -23,7 +23,6 @@ const CONFIG = {
 const params = new URLSearchParams(location.search);
 const id = params.get("id");
 const shell = mountShell({ page: "validation", title: "Validation", subtitle: "" });
-if (shell) init(shell);
 
 async function init({ main, setHeader, user }) {
   const cfg = CONFIG[user.role];
@@ -152,7 +151,12 @@ async function init({ main, setHeader, user }) {
       });
       droite.append(h("section", { class: "card actions-card" }, h("h2", { style: "font-size:16px" }, "Décision"), indicateur, btnSave, btnOk, btnRet));
     }
-    droite.append(h("section", { class: "card card-pad" }, h("h2", { style: "font-size:16px;margin-bottom:14px" }, "Circuit du dossier"), circuitDossier(d.historique)));
+    const ammc = h("div", { hidden: true });
+    carteAmmc(d).then((c) => { if (c) { ammc.replaceChildren(c); ammc.hidden = false; } });
+    droite.append(ammc, h("section", { class: "card card-pad" }, h("h2", { style: "font-size:16px;margin-bottom:14px" }, "Circuit du dossier"), circuitDossier(d.historique)));
     zone.replaceChildren(h("div", { class: "layout-2col" }, gauche, droite));
   }
 }
+
+// Appel en toute fin de fichier : toutes les constantes ci-dessus doivent exister avant init()
+if (shell) init(shell);

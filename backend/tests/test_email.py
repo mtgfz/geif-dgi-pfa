@@ -16,6 +16,9 @@ class _FauxServeur:
 
     def __enter__(self): return self
     def __exit__(self, *a): return False
+    starttls_dispo = True
+    def ehlo(self): self.calls.append("ehlo")
+    def has_extn(self, nom): return self.starttls_dispo
     def starttls(self): self.calls.append("starttls")
     def login(self, u, p): self.calls.append(("login", u, p))
     def sendmail(self, *a): self.calls.append("sendmail")
@@ -38,7 +41,7 @@ def test_port_587_utilise_starttls(smtp, monkeypatch):
     monkeypatch.setattr(settings, "SMTP_PORT", 587)
     assert email_service.envoyer_email_confirmation_depot("a@b.c", "X", "REC-2026-111111", "AAAA-BBBB") is True
     s = smtp[0]
-    assert s.kind == "SMTP" and s.calls[0] == "starttls" and "sendmail" in s.calls
+    assert s.kind == "SMTP" and "starttls" in s.calls and "sendmail" in s.calls
 
 
 def test_port_465_utilise_ssl_sans_starttls(smtp, monkeypatch):
@@ -75,3 +78,16 @@ def test_422_message_lisible_meme_pour_un_ancien_client(client, depot):
                                            "date_mer": "2024-01-10", "date_reclam": "2024-03-01"})
     assert r.status_code == 422 and isinstance(r.json()["detail"], str) and "montant" in r.json()["detail"]
     assert isinstance(r.json()["errors"], list)
+
+
+def test_serveur_de_test_local_sans_starttls_ni_identifiants(smtp, monkeypatch):
+    """Mailpit (Docker) : pas de STARTTLS, pas de compte. L'envoi doit quand même fonctionner."""
+    monkeypatch.setattr(_FauxServeur, "starttls_dispo", False)
+    monkeypatch.setattr(settings, "SMTP_HOST", "mailpit")
+    monkeypatch.setattr(settings, "SMTP_PORT", 1025)
+    monkeypatch.setattr(settings, "SMTP_USER", "")
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "")
+    assert settings.email_configure() is True
+    assert email_service.envoyer_email_confirmation_depot("a@b.c", "X", "REC-2026-111111", "AAAA-BBBB") is True
+    appels = smtp[0].calls
+    assert "starttls" not in appels and "sendmail" in appels and not any(isinstance(c, tuple) for c in appels)

@@ -1,0 +1,19 @@
+# Dépendances des tests (CI) : sans chromadb ni sentence-transformers (importés seulement à l'exécution du RAG,
+# et simulés dans les tests).
+fastapi
+uvicorn[standard]
+python-multipart
+pymongo
+pyjwt
+bcrypt
+python-dotenv
+requests
+pytesseract
+pillow
+pymupdf
+numpy
+pandas>=2.2
+statsmodels
+httpx
+pytest
+mongomock

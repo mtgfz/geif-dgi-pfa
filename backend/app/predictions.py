@@ -121,3 +121,47 @@ def predict_outcome(tax: str, motif: str, montant: float, date_mer: str, date_re
             "élevée" if observations >= 20 else "moyenne" if observations >= 5 else "faible (peu d'historique)"
         ),
     }
+
+
+def charge_prevue(tax: str | None, horizon_jours: int = 28, jours_historique: int = 60) -> dict:
+    """Charge de travail à venir à partir de l'historique RÉEL des dépôts (jours sans dépôt comptés à 0).
+    Tendance linéaire simple, volontairement modeste : la fiabilité affichée dépend de la quantité de données."""
+    query = {"tax": tax} if tax else {}
+    dates = sorted(datetime.fromisoformat(r["created_at"]).date() for r in col_reclamations.find(query, {"created_at": 1}))
+    aujourdhui = datetime.now().date()
+    if len(dates) < 3:
+        return {"disponible": False, "dossiers": len(dates),
+                "message": "Historique insuffisant (moins de 3 dossiers) pour estimer une charge à venir."}
+    premier = dates[0]
+    n_jours = max((aujourdhui - premier).days + 1, 1)
+    par_jour = defaultdict(int)
+    for d in dates:
+        par_jour[d] += 1
+    xs = list(range(n_jours))
+    ys = [par_jour.get(premier + timedelta(days=x), 0) for x in xs]
+    moy_x, moy_y = sum(xs) / n_jours, sum(ys) / n_jours
+    var_x = sum((x - moy_x) ** 2 for x in xs)
+    pente = sum((x - moy_x) * (y - moy_y) for x, y in zip(xs, ys)) / var_x if var_x else 0.0
+    ordonnee = moy_y - pente * moy_x
+
+    debut_hist = max(premier, aujourdhui - timedelta(days=jours_historique - 1))
+    historique = [{"date": (debut_hist + timedelta(days=i)).isoformat(),
+                   "volume": par_jour.get(debut_hist + timedelta(days=i), 0)}
+                  for i in range((aujourdhui - debut_hist).days + 1)]
+    previsions = [{"date": (aujourdhui + timedelta(days=i)).isoformat(),
+                   "volume_prevu": round(max(0.0, ordonnee + pente * (n_jours - 1 + i)), 2)} for i in range(1, horizon_jours + 1)]
+
+    if len(dates) < 20 or n_jours < 14:
+        fiabilite, expl = "insuffisante", "Trop peu de données (moins de 20 dossiers ou moins de 14 jours d'historique) : tendance purement indicative."
+    elif n_jours < 60:
+        fiabilite, expl = "indicative", "Historique court (moins de 60 jours) : la tendance peut changer rapidement."
+    else:
+        fiabilite, expl = "correcte", "Historique suffisant pour une tendance linéaire simple (sans saisonnalité)."
+    return {
+        "disponible": True, "tax": tax or "toutes", "dossiers": len(dates), "jours_historique": n_jours,
+        "methode": "tendance linéaire sur le nombre de dépôts par jour", "tendance": "hausse" if pente > 0.02 else ("baisse" if pente < -0.02 else "stable"),
+        "pente_par_jour": round(pente, 4), "fiabilite": fiabilite, "explication": expl,
+        "total_prevu_7j": round(sum(p["volume_prevu"] for p in previsions[:7]), 1),
+        "total_prevu_horizon": round(sum(p["volume_prevu"] for p in previsions), 1),
+        "historique": historique, "previsions": previsions,
+    }

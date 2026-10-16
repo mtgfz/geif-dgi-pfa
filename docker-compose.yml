@@ -1,6 +1,11 @@
-# Optionnel : lance juste MongoDB en local sans installer quoi que ce soit.
-# Usage : docker compose up -d
-# Puis backend/.env garde MONGO_URI=mongodb://localhost:27017 (par défaut).
+# GEIF — tout lancer en une commande :
+#     cp .env.example .env        (puis renseigner au moins JWT_SECRET et les codes chefs)
+#     docker compose up --build
+#
+#   Portail + espace agents : http://localhost:8080        API : http://localhost:8010/docs
+#   E-mails de test (Mailpit) : http://localhost:8025
+#
+# Développement sans Docker pour l'API : « docker compose up -d mongo » ne démarre que la base de données.
 services:
   mongo:
     image: mongo:7
@@ -10,6 +15,55 @@ services:
       - "27017:27017"
     volumes:
       - geif_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: geif-api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      ALLOWED_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      # E-mails : par défaut captés par Mailpit (aucun compte requis). Un vrai SMTP dans .env prend le dessus.
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-geif@dgi.local}
+    ports:
+      - "8010:8010"
+    volumes:
+      - geif_cache:/app/backend/.cache
+
+  web:
+    build: ./frontend
+    container_name: geif-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: geif-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
 
 volumes:
   geif_mongo_data:
+  geif_cache:

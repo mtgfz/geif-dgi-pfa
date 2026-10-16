@@ -90,3 +90,57 @@ def prechauffer() -> bool:
     except Exception as e:  # noqa: BLE001
         print(f"[RAG] Préchauffage impossible ({e}) — le RAG sera réessayé à la première utilisation.")
         return False
+
+
+def _collection_seule():
+    """Collection Chroma SANS charger le modèle d'embedding (suffisant pour compter et lister)."""
+    if _collection_cgi is not None:
+        return _collection_cgi
+    import chromadb
+    return chromadb.PersistentClient(path=settings.CHROMA_PATH).get_collection(name="cgi")
+
+
+_etat_cache = {"valeur": None, "date": 0.0}
+
+
+def etat_rag() -> dict:
+    """Résumé de la base documentaire du CGI pour la page « Base de connaissances » (mis en cache 5 min)."""
+    import os
+    import time
+    if _etat_cache["valeur"] and time.time() - _etat_cache["date"] < 300:
+        return {**_etat_cache["valeur"], "modele_charge": _modele_embedding is not None}
+    pdf = os.path.abspath(os.path.join(settings.CHROMA_PATH, "..", "data", "CGI.pdf"))
+    info = {
+        "disponible": False, "collection": "cgi", "modele": settings.EMBED_MODEL_NAME, "modele_charge": _modele_embedding is not None,
+        "source": {"nom": os.path.basename(pdf), "taille_mo": round(os.path.getsize(pdf) / 1048576, 1)} if os.path.exists(pdf) else None,
+    }
+    try:
+        metas = _collection_seule().get(include=["metadatas"])["metadatas"]
+        articles = {m["article"] for m in metas if m.get("article") and m["article"] != "non détecté"}
+        pages = [m["page"] for m in metas if m.get("page")]
+        info.update(disponible=True, passages=len(metas), articles=len(articles),
+                    page_min=min(pages) if pages else None, page_max=max(pages) if pages else None)
+        _etat_cache.update(valeur=info, date=time.time())
+    except Exception as e:  # noqa: BLE001
+        info["message"] = f"Base du CGI inaccessible : {e}"
+    return info
+
+
+def rechercher_cgi(requete: str, k: int = 5) -> dict:
+    """Recherche exploratoire : consultation directe d'un article (« Article 235 ») puis recherche sémantique."""
+    import re
+    resultats, vus = [], set()
+    m = re.match(r"^\s*art(?:icle|\.)?\s*(\d+(?:\s*(?:bis|ter|quater))?)\s*$", requete, re.I)
+    if m:
+        numero = "Article " + " ".join(m.group(1).split())
+        try:
+            exact = _collection_seule().get(where={"article": numero}, include=["documents", "metadatas"])
+            for doc, meta in zip(exact["documents"], exact["metadatas"]):
+                resultats.append({"article": meta["article"], "page": meta["page"], "score": None, "texte": doc, "exact": True})
+                vus.add(meta["article"])
+        except Exception:  # noqa: BLE001 — article absent : on retombe sur la recherche sémantique
+            pass
+    for a in rechercher_articles_cgi(requete, k=k):
+        if a["article"] not in vus:
+            resultats.append({"article": a["article"], "page": a["page"], "score": a["score"], "texte": a["texte"], "exact": False})
+    return {"requete": requete, "resultats": resultats[:k], "consultation_directe": bool(m)}

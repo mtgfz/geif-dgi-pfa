@@ -112,3 +112,24 @@ export function chargerDossier(id) {
   const enc = encodeURIComponent(id);
   return Promise.all([api.get(`/reclamations/${enc}`), api.get(`/reclamations/${enc}/documents`)]);
 }
+
+
+// Rapprochement avec le référentiel AMMC : la raison sociale du contribuable correspond-elle à un émetteur coté ?
+// Affiche une carte seulement en cas de correspondance probable (sinon rien : pas de bruit).
+const TON_AMMC = { valide: "green", partiel: "amber", non_extrait: "slate", erreur: "red" };
+export async function carteAmmc(d) {
+  let r;
+  try { r = await api.get("/marche-ammc/rapprochement", { nom: d.contrib }); } catch { return null; }
+  if (!r.correspondance) return null;
+  const lignes = r.exercices.slice(0, 4).map((e) => h("div", { class: "doc" },
+    h("div", { class: "doc-main" }, h("strong", {}, `Exercice ${e.annee}`),
+      h("span", { class: "cell-sub" }, e.resultat_net != null ? `Résultat net : ${nombreFr(e.resultat_net)} (${e.unite || "unité non déterminée"})` : "Résultat net non extrait")),
+    h("span", { class: `badge plain tone-${TON_AMMC[e.statut]}` }, e.statut_libelle),
+    e.pdf_url ? h("a", { class: "btn btn-sm", href: e.pdf_url, target: "_blank", rel: "noopener noreferrer" }, "PDF") : null));
+  return h("section", { class: "card card-pad" },
+    h("h2", { style: "font-size:16px;margin-bottom:6px" }, "Émetteur coté (AMMC)"),
+    h("p", { class: "muted", style: "font-size:13px;margin-bottom:12px" }, "Correspondance probable par raison sociale : ", h("strong", {}, r.emetteur), ". À confirmer (IF/ICE non vérifiés) ; repère sectoriel uniquement."),
+    h("div", { class: "doc-list" }, lignes),
+    h("a", { class: "btn btn-sm btn-block", style: "margin-top:12px", href: `ammc.html?banque=${encodeURIComponent(r.emetteur)}` }, "Voir dans AMMC & banques", icon("right")));
+}
+const nombreFr = (v) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(v).replace(/\u202f|\u00a0/g, " ");

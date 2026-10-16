@@ -38,13 +38,18 @@ class _FauxModele:
 
 
 class _FausseCollection:
+    DOCS = [
+            ("Article 235 - Les réclamations doivent être présentées dans les six mois.", {"article": "Article 235", "page": 120}),
+            ("Article 232 - Réparation des erreurs et omissions de liquidation.", {"article": "Article 232", "page": 118}),
+            ("Article 10 - charges déductibles.", {"article": "Article 10", "page": 12}),
+    ]
+
+    def get(self, where=None, include=None):
+        sel = [d for d in self.DOCS if not where or d[1]["article"] == where["article"]]
+        return {"documents": [d for d, _ in sel], "metadatas": [m for _, m in sel]}
+
     def query(self, query_embeddings, n_results):
-        docs = [
-            ("Article 235 - Les réclamations doivent être présentées dans les six mois.", {"article": "Art. 235 CGI", "page": 120}),
-            ("Article 232 - Réparation des erreurs et omissions de liquidation.", {"article": "Art. 232 CGI", "page": 118}),
-            ("Article 235 (suite) - délai six mois mise en recouvrement.", {"article": "Art. 235 CGI", "page": 121}),
-            ("Article 10 - charges déductibles.", {"article": "Art. 10 CGI", "page": 12}),
-        ]
+        docs = self.DOCS[:2] + [("Article 235 (suite) - délai six mois mise en recouvrement.", {"article": "Article 235", "page": 121})] + self.DOCS[2:]
         return {"documents": [[d for d, _ in docs]], "metadatas": [[m for _, m in docs]]}
 
 

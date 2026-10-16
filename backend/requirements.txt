@@ -8,7 +8,10 @@ python-dotenv
 requests
 chromadb
 sentence-transformers
-duckdb
 pytesseract
 pillow
 pymupdf
+numpy
+pandas>=2.2
+statsmodels
+httpx

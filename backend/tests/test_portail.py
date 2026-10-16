@@ -32,7 +32,7 @@ def test_assistant_s_appuie_sur_le_cgi_et_cite_ses_sources(client, monkeypatch):
     assert r.status_code == 200
     d = r.json()
     assert d["genere"] is True and "Art. 235" in d["reponse"]
-    assert any(s["article"] == "Art. 235 CGI" for s in d["sources"])
+    assert any(s["article"] == "Article 235" for s in d["sources"])
     assert "EXTRAITS DU CGI" in vus["prompt"] and "six mois" in vus["prompt"]          # le RAG alimente bien le prompt
     assert "N'invente JAMAIS" in vus["prompt"]
 

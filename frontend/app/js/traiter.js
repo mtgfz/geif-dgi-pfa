@@ -1,7 +1,7 @@
 // Traiter : le gestionnaire lance « Traiter la réclamation » (pièces lues, articles du CGI via RAG, rapport + décision
 // par le modèle de langage), modifie le texte, puis valide et envoie au Chef de Service.
 import { api } from "../../assets/js/api.js";
-import { badgeSource, chargerDossier, sectionArticles, sectionPieces, titreEtape } from "../../assets/js/dossier.js";
+import { badgeSource, carteAmmc, chargerDossier, sectionArticles, sectionPieces, titreEtape } from "../../assets/js/dossier.js";
 import { mountShell } from "../../assets/js/layout.js";
 import {
   circuitDossier, confirmer, decisionBadge, faitsDossier, flash, formatMoney, formatRef, h, icon, statusBadge, toast,
@@ -10,7 +10,6 @@ import {
 const params = new URLSearchParams(location.search);
 const id = params.get("id");
 const shell = mountShell({ page: "traiter", title: "Traiter une réclamation", subtitle: "" });
-if (shell) init(shell);
 
 async function ouvrirSuivant(main) {
   const { items } = await api.get("/reclamations", { scope: "accueil", status: "retournee,en_traitement,nouvelle", limit: 100 });
@@ -71,8 +70,10 @@ async function init({ main, setHeader }) {
         h("section", { class: "card card-pad" }, titreEtape(2, "Articles du CGI retrouvés", "Recherche sémantique dans le Code Général des Impôts à partir du motif de la réclamation."), sectionArticles(d)),
         editable ? editeur(d, droite) : lectureSeule(d));
     }
+    const ammc = h("div", { hidden: true });
+    carteAmmc(d).then((c) => { if (c) { ammc.replaceChildren(c); ammc.hidden = false; } });
     droite.prepend(resume);
-    droite.append(circuit);
+    droite.append(ammc, circuit);
     zone.replaceChildren(h("div", { class: "layout-2col" }, gauche, droite));
   }
 
@@ -206,3 +207,6 @@ async function init({ main, setHeader }) {
 
   await charger();
 }
+
+// Appel en toute fin de fichier : toutes les constantes ci-dessus doivent exister avant init()
+if (shell) init(shell);
